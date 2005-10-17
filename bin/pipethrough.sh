@@ -26,7 +26,7 @@
 ###############################################################################
 
 if [ $# -lt 2 ]; then
-	echo "Usage: `basename $0` <command> file [, ...]"
+	echo >&2 "Usage: `basename $0` <command> file [, ...]"
 	exit 1
 fi
 
@@ -35,7 +35,7 @@ shift
 
 for file do
 	tempdestination=${file}.$$
-	echo "${command} "'"'"${file}"'"'
+	echo >&2 "${command} "'"'"${file}"'"'
 	sh -c "${command} \"${file}\" > \"${tempdestination}\" && mv \"${tempdestination}\" \"${file}\""
 	####- ${command} "${file}" > "${tempdestination}" && mv "${tempdestination}" "${file}"
 done
