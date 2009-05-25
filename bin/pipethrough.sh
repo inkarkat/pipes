@@ -20,6 +20,7 @@
 # RETURN VALUES: 
 #	none
 # REVISION	DATE		REMARKS 
+#	0.12	26-Sep-2006	Simplified print command. 
 #	0.11	18-Oct-2005	BF: fixed unwanted escaping in echo. 
 #	0.10	01-Jun-2004	BF: invoking ${command} via shell, because
 #	commands with input redirection (e.g. "tr '\\' '/' <") were hanging. 
@@ -36,7 +37,7 @@ shift
 
 for file do
 	tempdestination=${file}.$$
-	print -R >&2 "${command} "'"'"${file}"'"'
+	print -R >&2 "${command} \"${file}\""
 	sh -c "${command} \"${file}\" > \"${tempdestination}\" && mv \"${tempdestination}\" \"${file}\""
 	####- ${command} "${file}" > "${tempdestination}" && mv "${tempdestination}" "${file}"
 done
