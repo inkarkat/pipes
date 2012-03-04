@@ -1,10 +1,10 @@
 #!/bin/sh
-###########################################################################HP##
+###############################################################################
 ##
-# FILE: 	
-# PRODUCT:	
-# AUTHOR: 	
-# DATE CREATED:	
+# FILE: 	pipethrough.sh
+# PRODUCT:	tools
+# AUTHOR: 	/^--
+# DATE CREATED:	01-Jan-2004
 #
 ###############################################################################
 # PURPOSE:
@@ -20,16 +20,18 @@
 # RETURN VALUES: 
 #	none
 # REVISION	DATE		REMARKS 
+#	013	26-May-2009	Replaced Korn Shell'ish 'print -R' with 'echo'. 
 #	0.12	26-Sep-2006	Simplified print command. 
 #	0.11	18-Oct-2005	BF: fixed unwanted escaping in echo. 
 #	0.10	01-Jun-2004	BF: invoking ${command} via shell, because
-#	commands with input redirection (e.g. "tr '\\' '/' <") were hanging. 
-#	0.01	00-Jan-2001	file creation
+#				commands with input redirection (e.g. "tr '\\'
+#				'/' <") were hanging. 
+#	0.01	01-Jan-2004	file creation
 ###############################################################################
 
 if [ $# -lt 2 ]; then
-	echo >&2 "Usage: `basename $0` <command> file [, ...]"
-	exit 1
+	echo >&2 "Usage: $(basename -- "$0") <command> file [, ...]"
+	exit 2
 fi
 
 command=$1
@@ -37,8 +39,7 @@ shift
 
 for file do
 	tempdestination=${file}.$$
-	print -R >&2 "${command} \"${file}\""
+	echo >&2 "${command} \"${file}\""
 	sh -c "${command} \"${file}\" > \"${tempdestination}\" && mv \"${tempdestination}\" \"${file}\""
-	####- ${command} "${file}" > "${tempdestination}" && mv "${tempdestination}" "${file}"
 done
 
