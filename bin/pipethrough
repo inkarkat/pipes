@@ -16,6 +16,8 @@
 # RETURN VALUES:
 #   none
 # REVISION	DATE		REMARKS
+#	015	14-Jun-2016	Use eval() instead of $SHELL, printf instead of
+#				echo.
 #	014	12-Apr-2016	Use mktemp, $SHELL.
 #	013	26-May-2009	Replaced Korn Shell'ish 'print -R' with 'echo'.
 #	0.12	26-Sep-2006	Simplified print command.
@@ -34,8 +36,9 @@ fi
 command=$1
 shift
 
-for file do
+for file
+do
     tmpFile=$(mktemp --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || echo "${TEMP:-/tmp}/$(basename -- "$0").$$")
-    echo >&2 "${command} \"${file}\""
-    ${SHELL:-sh} -c "${command} \"${file}\" > \"${tmpFile}\" && mv -f \"${tmpFile}\" \"${file}\""
+    printf >&2 '%s\n' "${command} '${file}'"
+    eval "${command} '${file}'" > "${tmpFile}" && mv -f "${tmpFile}" "${file}"
 done
