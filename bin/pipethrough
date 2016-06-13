@@ -41,13 +41,19 @@ Usage:
     $(basename "$1") "COMMAND [ARGUMENTS ...]" FILE [, ...]
     $(basename "$1") -- COMMAND [ARGUMENTS ...] -- FILE [, ...]
     $(basename "$1") \; COMMAND [ARGUMENTS ...] \; FILE [, ...]
+$(basename "$1") exits with the following status:
+      0 if it succeeds
+    123 if any invocation of the COMMAND exited with status 1-125
+    124 if the COMMAND exited with status 255
+      1 if some other error occurred
+      2 if it was invoked in a wrong way, e.g. missing FILEs
 HELPTEXT
 }
 
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 esac
-if [ $# -lt 2 ]; then
+if [ $# -eq 0 ]; then
     printUsage "$0"
     exit 2
 fi
@@ -76,7 +82,15 @@ case "$1" in
 	;;
 esac
 
+
+
 ####D echo "**** ${command[0]}"; echo "**** ${command[1]}"; echo "**** ${command[2]}"; exit
+if [ $# -eq 0 ]; then
+    echo >&2 "ERROR: No FILEs to pipe."
+    printUsage "$0"
+    exit 2
+fi
+
 for file
 do
     tmpFile=$(mktemp --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || echo "${TEMP:-/tmp}/$(basename -- "$0").$$")
