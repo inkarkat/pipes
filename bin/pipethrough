@@ -7,14 +7,6 @@
 # DATE CREATED:	01-Jan-2004
 #
 ###############################################################################
-# PURPOSE:
-#   Pipes the (list of) files through an external command and writes the output
-#   back into the file.
-# INPUTS:
-#   first argument: command (e.g. dos2ux)
-#   next arguments: files to be modified
-# RETURN VALUES:
-#   none
 # REVISION	DATE		REMARKS
 #	015	14-Jun-2016	Use eval() instead of $SHELL, printf instead of
 #				echo.
@@ -24,6 +16,8 @@
 #				-exec) in addition to a quoted (single-argument)
 #				COMMAND; quoting may be cumbersome.
 #				Support --help.
+#				ENH: Support (xargs-like) exit statuses and
+#				aborting the iteration via exit 255.
 #	014	12-Apr-2016	Use mktemp, $SHELL.
 #	013	26-May-2009	Replaced Korn Shell'ish 'print -R' with 'echo'.
 #	0.12	26-Sep-2006	Simplified print command.
@@ -34,13 +28,33 @@
 #	0.01	01-Jan-2004	file creation
 ###############################################################################
 
-printUsage()
+printShortUsage()
 {
-    cat <<HELPTEXT
+    cat <<SHORTHELPTEXT
 Usage:
     $(basename "$1") "COMMAND [ARGUMENTS ...]" FILE [, ...]
     $(basename "$1") -- COMMAND [ARGUMENTS ...] -- FILE [, ...]
     $(basename "$1") \; COMMAND [ARGUMENTS ...] \; FILE [, ...]
+SHORTHELPTEXT
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    cat >&2 <<MOREHELP
+Try "$(basename "$1")" --help for more information.
+MOREHELP
+}
+printLongUsage()
+{
+    cat <<HELPDESCRIPTION
+Pipes the (list of) FILEs through an external COMMAND and writes the output
+back into the same FILE.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    cat <<HELPTEXT
 $(basename "$1") exits with the following status:
       0 if it succeeds
     123 if any invocation of the COMMAND exited with status 1-125
@@ -50,8 +64,10 @@ $(basename "$1") exits with the following status:
 HELPTEXT
 }
 
+
+
 case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 esac
 if [ $# -eq 0 ]; then
     printUsage "$0"
@@ -91,9 +107,15 @@ if [ $# -eq 0 ]; then
     exit 2
 fi
 
+exitStatus=0
 for file
 do
     tmpFile=$(mktemp --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || echo "${TEMP:-/tmp}/$(basename -- "$0").$$")
-    printf >&2 '%s\n' "${command} '${file}'"
-    "${command[@]}" "$file" > "$tmpFile" && mv -f "$tmpFile" "$file"
+####D printf >&2 '%s\n' "${command[*]} '${file}'"
+    "${command[@]}" "$file" > "$tmpFile" && mv -f "$tmpFile" "$file" || \
+	case $? in
+	    255)    exit 124;;
+	    *)	    exitStatus=123;;
+	esac
 done
+exit $exitStatus
