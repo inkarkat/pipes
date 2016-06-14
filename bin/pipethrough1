@@ -1,0 +1,145 @@
+#!/bin/bash
+###############################################################################
+##
+# FILE: 	pipethrough
+# PRODUCT:	tools
+# AUTHOR: 	/^--
+# DATE CREATED:	15-Jun-2016
+#
+###############################################################################
+# REVISION	DATE		REMARKS
+#	001	01-Jan-2004	file creation from pipethrough
+###############################################################################
+
+printShortUsage()
+{
+    cat <<SHORTHELPTEXT
+Usage:
+    $(basename "$1") [-v|--verbose] [-b|--backup EXT] [(--diff-only|--diff) [--diff-cmd CMD] [--diff-options OPT]] [--error-unless-change|--error-on-change] [-?|-h|--help] ...
+    $(basename "$1") [...] COMMAND [ARGUMENTS ...] FILE
+SHORTHELPTEXT
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    cat >&2 <<MOREHELP
+Try "$(basename "$1")" --help for more information.
+MOREHELP
+}
+printLongUsage()
+{
+    cat <<HELPDESCRIPTION
+Pipes FILE through an external COMMAND and writes the output back into the same
+FILE.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    cat <<HELPTEXT
+    --verbose|-v	    Show each executed command on stderr.
+    --backup|-b		    Create a backup of the original file with file
+			    extension EXT.
+    --diff-only		    Only show differences done by COMMAND, don't persist.
+    --diff		    Also show differences done by COMMAND, and overwrite.
+    --diff-cmd CMD	    Use CMD as the diff command.
+    --diff-options OPT	    Options passed to diff; default -u (unified diff).
+    --error-unless-change   Exit 1 if COMMAND didn't change the FILE.
+    --error-on-change	    Exit 1 if COMMAND changed the FILE.
+
+$(basename "$1") exits with the following status:
+      0 if it succeeds
+    123 if the COMMAND exited with status 1-125
+    124 if the COMMAND exited with status 255
+      1 if an error was raised (--error-on-change, --error-unless-change)
+      2 if it was invoked in a wrong way, e.g. missing FILE
+HELPTEXT
+}
+
+
+action=overwrite
+errorOn=
+backupExtension=
+commandArgumentNum=
+diffCommand=diff; type -t colordiff >/dev/null && diffCommand=colordiff # Highlight diff output if available.
+diffOptions=-u
+isVerbose=
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--verbose|-v)	shift; isVerbose=t;;
+	--backup|-b)	shift; backupExtension="$1"; shift;;
+	--diff-only)	shift; action=diffChanges;;
+	--diff)		shift; action=diffAndOverwrite;;
+	--diff-options)		shift; diffOptions="$1"; shift;;
+	--diff-cmd)		shift; diffCommand="$1"; shift;;
+	--error-unless-change)	shift; errorOn=0;;
+	--error-on-change)	shift; errorOn=1;;
+	--)		break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printShortUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
+[ $# -eq 0 ] && { printUsage "$0"; exit 2; }
+if [ $# -lt 2 ]; then
+    echo >&2 "ERROR: No FILE to pipe."
+    printUsage "$0"
+    exit 2
+fi
+
+typeset -a command=("${@:1:$(($#-1))}")
+typeset file="${!#}"
+
+
+
+overwrite()
+{
+    mv -f "$1" "$2"
+}
+diffChanges()
+{
+    eval "$diffCommand" "$diffOptions" '"$1" "$2"'
+    return 0	# Do not interpret differences as failure; we have the separate --error-on-change and --error-unless-change for that.
+}
+diffAndOverwrite()
+{
+    diffChanges "$1" "$2"
+    overwrite "$1" "$2"
+}
+
+checkError()
+{
+    [ "$errorOn" ] || return 0
+
+    cmp --silent "$1" "$2"
+    case $? in
+	2)	    exit 1;;	# cmp had trouble
+	$errorOn)
+	    $action "$1" "$2" || {
+		case $? in
+		    255)    exit 124;;	# special COMMAND exit has precedence over error
+		esac
+	    }
+	    exit 1  # signal error
+	    ;;
+    esac
+}
+
+
+
+####D echo "**** ${command[0]}"; echo "**** ${command[1]}"; echo "**** ${command[2]}"; exit
+tmpFile=$(mktemp --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || echo "${TEMP:-/tmp}/$(basename -- "$0").$$")
+
+[ "$isVerbose" ] && printf >&2 '%s\n' "${command[*]} '${file}'"
+
+if [ "$backupExtension" ]; then
+    cp --force --preserve "$file" "${file}${backupExtension}" || exit $?
+fi
+
+"${command[@]}" "$file" > "$tmpFile" && checkError "$tmpFile" "$file" && $action "$tmpFile" "$file" || {
+    case $? in
+	255)    exit 124;;
+	*)	exit 123;;
+    esac
+}
