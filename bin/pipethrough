@@ -18,6 +18,8 @@
 #				Support --help.
 #				ENH: Support (xargs-like) exit statuses and
 #				aborting the iteration via exit 255.
+#				ENH: Support diffing, abort on [no] change.
+#				ENH: Support verbose mode.
 #	014	12-Apr-2016	Use mktemp, $SHELL.
 #	013	26-May-2009	Replaced Korn Shell'ish 'print -R' with 'echo'.
 #	0.12	26-Sep-2006	Simplified print command.
@@ -32,9 +34,10 @@ printShortUsage()
 {
     cat <<SHORTHELPTEXT
 Usage:
-    $(basename "$1") "COMMAND [ARGUMENTS ...]" FILE [, ...]
-    $(basename "$1") -- COMMAND [ARGUMENTS ...] -- FILE [, ...]
-    $(basename "$1") \; COMMAND [ARGUMENTS ...] \; FILE [, ...]
+    $(basename "$1") [-v|--verbose] [--diff-only|--diff [--diff-cmd CMD] [--diff-options OPT]] [--abort-unless-change|--abort-on-change] [-?|-h|--help] ...
+    $(basename "$1") [...] "COMMAND [ARGUMENTS ...]" FILE [, ...]
+    $(basename "$1") [...] -- COMMAND [ARGUMENTS ...] -- FILE [, ...]
+    $(basename "$1") [...] \; COMMAND [ARGUMENTS ...] \; FILE [, ...]
 SHORTHELPTEXT
 }
 printUsage()
@@ -55,24 +58,46 @@ HELPDESCRIPTION
     echo
     printShortUsage "$1"
     cat <<HELPTEXT
+    --verbose|-v	    Show each executed command on stderr
+    --diff-only		    Only show differences done by COMMAND, don't persist
+    --diff		    Also show differences done by COMMAND, and overwrite
+    --diff-cmd CMD	    Use CMD as the diff command
+    --diff-options OPT	    Options passed to diff; default -u (unified diff)
+    --abort-unless-change   Do not process further FILEs if COMMAND didn't change the current FILE
+    --abort-on-change	    Do not process further FILEs if COMMAND changed the current FILE
+
 $(basename "$1") exits with the following status:
       0 if it succeeds
     123 if any invocation of the COMMAND exited with status 1-125
     124 if the COMMAND exited with status 255
-      1 if some other error occurred
+      1 if the processing was aborted (--abort-on-change, --abort-unless-change)
       2 if it was invoked in a wrong way, e.g. missing FILEs
 HELPTEXT
 }
 
 
-
-case "$1" in
-    --help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
-esac
-if [ $# -eq 0 ]; then
-    printUsage "$0"
-    exit 2
-fi
+action=overwrite
+abortOn=
+diffCommand=diff; type -t colordiff >/dev/null && diffCommand=colordiff # Highlight diff output if available.
+diffOptions=-u
+isVerbose=
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--verbose|-v)	shift; isVerbose=t;;
+	--diff-only)	shift; action=diffChanges;;
+	--diff)		shift; action=diffAndOverwrite;;
+	--diff-options)		shift; diffOptions="$1"; shift;;
+	--diff-cmd)		shift; diffCommand="$1"; shift;;
+	--abort-unless-change)	shift; abortOn=0;;
+	--abort-on-change)	shift; abortOn=1;;
+	--)		break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printShortUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
+[ $# -eq 0 ] && { printUsage "$0"; exit 2; }
 
 case "$1" in
     \;|--)
@@ -100,6 +125,41 @@ esac
 
 
 
+overwrite()
+{
+    mv -f "$1" "$2"
+}
+diffChanges()
+{
+    eval "$diffCommand" "$diffOptions" '"$1" "$2"'
+    return 0	# Do not interpret differences as failure; we have the separate --abort-on-change and --abort-unless-change for that.
+}
+diffAndOverwrite()
+{
+    diffChanges "$1" "$2"
+    overwrite "$1" "$2"
+}
+
+checkAbort()
+{
+    [ "$abortOn" ] || return 0
+
+    cmp --silent "$1" "$2"
+    case $? in
+	2)	    exit 1;;	# cmp had trouble
+	$abortOn)
+	    $action "$1" "$2" || {
+		case $? in
+		    255)    exit 124;;	# special COMMAND exit has precedence over abort
+		esac
+	    }
+	    exit 1  # signal abort
+	    ;;
+    esac
+}
+
+
+
 ####D echo "**** ${command[0]}"; echo "**** ${command[1]}"; echo "**** ${command[2]}"; exit
 if [ $# -eq 0 ]; then
     echo >&2 "ERROR: No FILEs to pipe."
@@ -111,11 +171,12 @@ exitStatus=0
 for file
 do
     tmpFile=$(mktemp --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || echo "${TEMP:-/tmp}/$(basename -- "$0").$$")
-####D printf >&2 '%s\n' "${command[*]} '${file}'"
-    "${command[@]}" "$file" > "$tmpFile" && mv -f "$tmpFile" "$file" || \
+    [ "$isVerbose" ] && printf >&2 '%s\n' "${command[*]} '${file}'"
+    "${command[@]}" "$file" > "$tmpFile" && checkAbort "$tmpFile" "$file" && $action "$tmpFile" "$file" || {
 	case $? in
 	    255)    exit 124;;
 	    *)	    exitStatus=123;;
 	esac
+    }
 done
 exit $exitStatus
