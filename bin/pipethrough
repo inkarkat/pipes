@@ -9,6 +9,10 @@
 ###############################################################################
 # REVISION	DATE		REMARKS
 #	016	15-Jun-2016	ENH: Support --backup EXT.
+#				ENH: Support --command-arguments N.
+#				ENH: Support --test-only.
+#				ENH: Use on-demand quoting of all command
+#				arguments and file when using --verbose.
 #	015	14-Jun-2016	Use eval() instead of $SHELL, printf instead of
 #				echo.
 #				ENH: Support -- COMMAND -- (inspired from the
@@ -35,10 +39,11 @@ printShortUsage()
 {
     cat <<SHORTHELPTEXT
 Usage:
-    $(basename "$1") [-v|--verbose] [-b|--backup EXT] [(--diff-only|--diff) [--diff-cmd CMD] [--diff-options OPT]] [--abort-unless-change|--abort-on-change] [-?|-h|--help] ...
+    $(basename "$1") [-v|--verbose] [-b|--backup EXT] [--test-only|(--diff-only|--diff [--diff-cmd CMD] [--diff-options OPT])] [--abort-unless-change|--abort-on-change] [-?|-h|--help] ...
     $(basename "$1") [...] "COMMAND [ARGUMENTS ...]" FILE [, ...]
     $(basename "$1") [...] -- COMMAND [ARGUMENTS ...] -- FILE [, ...]
     $(basename "$1") [...] \; COMMAND [ARGUMENTS ...] \; FILE [, ...]
+    $(basename "$1") [...] -n|--command-arguments N COMMAND [ARGUMENTS ...] FILE [, ...]
 SHORTHELPTEXT
 }
 printUsage()
@@ -55,18 +60,29 @@ printLongUsage()
     cat <<HELPDESCRIPTION
 Pipes the (list of) FILEs through an external COMMAND and writes the output
 back into the same FILE.
+The COMMAND (and its ARGUMENTS) can be specified in various ways: As one quoted
+argument, separated by special arguments -- or \;, or (especially useful in
+scripts when you know the \${#ARGS[@]} but cannot influence the contents) by
+number of arguments.
 HELPDESCRIPTION
     echo
     printShortUsage "$1"
     cat <<HELPTEXT
-    --verbose|-v	    Show each executed command on stderr
-    --backup|-b		    Create a backup of the original file with file extension EXT
-    --diff-only		    Only show differences done by COMMAND, don't persist
-    --diff		    Also show differences done by COMMAND, and overwrite
-    --diff-cmd CMD	    Use CMD as the diff command
-    --diff-options OPT	    Options passed to diff; default -u (unified diff)
-    --abort-unless-change   Do not process further FILEs if COMMAND didn't change the current FILE
-    --abort-on-change	    Do not process further FILEs if COMMAND changed the current FILE
+    --verbose|-v	    Show each executed command on stderr.
+    --backup|-b		    Create a backup of the original file with file
+			    extension EXT.
+    --test-only		    Just test for change, don't persist.
+    --diff-only		    Only show differences done by COMMAND, don't persist.
+    --diff		    Also show differences done by COMMAND, and overwrite.
+    --diff-cmd CMD	    Use CMD as the diff command.
+    --diff-options OPT	    Options passed to diff; default -u (unified diff).
+    --abort-unless-change   Do not process further FILEs if COMMAND didn't
+			    change the current FILE.
+    --abort-on-change	    Do not process further FILEs if COMMAND changed the
+			    current FILE.
+    --command-arguments|-n N
+			    The COMMAND [ARGUMENTS ...] consists of N arguments;
+			    start accepting FILEs after that.
 
 $(basename "$1") exits with the following status:
       0 if it succeeds
@@ -81,6 +97,7 @@ HELPTEXT
 action=overwrite
 abortOn=
 backupExtension=
+commandArgumentNum=
 diffCommand=diff; type -t colordiff >/dev/null && diffCommand=colordiff # Highlight diff output if available.
 diffOptions=-u
 isVerbose=
@@ -90,12 +107,14 @@ do
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--verbose|-v)	shift; isVerbose=t;;
 	--backup|-b)	shift; backupExtension="$1"; shift;;
+	--test-only)	shift; action=testChanges;;
 	--diff-only)	shift; action=diffChanges;;
 	--diff)		shift; action=diffAndOverwrite;;
 	--diff-options)		shift; diffOptions="$1"; shift;;
 	--diff-cmd)		shift; diffCommand="$1"; shift;;
 	--abort-unless-change)	shift; abortOn=0;;
 	--abort-on-change)	shift; abortOn=1;;
+	--command-arguments|-n)	shift; commandArgumentNum="$1"; shift;;
 	--)		break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printShortUsage "$0"; } >&2; exit 2;;
 	*)		break;;
@@ -107,7 +126,7 @@ case "$1" in
     \;|--)
 	separator=$1
 	shift
-	typeset -a command
+	typeset -a command=()
 	while [ "$1" != "$separator" ]
 	do
 	    command+=("$1")
@@ -122,8 +141,17 @@ case "$1" in
 	fi
 	;;
     *)
-	eval "typeset -a command=($1)"
-	shift
+	if [ "$commandArgumentNum" ]; then
+	    typeset -a command=()
+	    for (( i = 0; i < $commandArgumentNum; i++ ))
+	    do
+		command+=("$1")
+		shift
+	    done
+	else
+	    eval "typeset -a command=($1)"
+	    shift
+	fi
 	;;
 esac
 
@@ -132,6 +160,10 @@ esac
 overwrite()
 {
     mv -f "$1" "$2"
+}
+testChanges()
+{
+    return 0
 }
 diffChanges()
 {
@@ -176,7 +208,9 @@ for file
 do
     tmpFile=$(mktemp --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || echo "${TEMP:-/tmp}/$(basename -- "$0").$$")
 
-    [ "$isVerbose" ] && printf >&2 '%s\n' "${command[*]} '${file}'"
+    if [ "$isVerbose" ]; then
+	printf >&2 '%q ' "${command[@]}" "${file}"; printf >&2 \\n
+    fi
 
     if [ "$backupExtension" ]; then
 	cp --force --preserve "$file" "${file}${backupExtension}" || exit $?
