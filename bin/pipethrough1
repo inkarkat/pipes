@@ -1,7 +1,7 @@
 #!/bin/bash
 ###############################################################################
 ##
-# FILE: 	pipethrough
+# FILE: 	pipethrough1
 # PRODUCT:	tools
 # AUTHOR: 	/^--
 # DATE CREATED:	15-Jun-2016
@@ -15,7 +15,7 @@ printShortUsage()
 {
     cat <<SHORTHELPTEXT
 Usage:
-    $(basename "$1") [-v|--verbose] [-b|--backup EXT] [(--diff-only|--diff) [--diff-cmd CMD] [--diff-options OPT]] [--error-unless-change|--error-on-change] [-?|-h|--help] ...
+    $(basename "$1") [-v|--verbose] [-b|--backup EXT] [--test-only|(--diff-only|--diff [--diff-cmd CMD] [--diff-options OPT])] [--error-unless-change|--error-on-change] [-?|-h|--help] ...
     $(basename "$1") [...] COMMAND [ARGUMENTS ...] FILE
 SHORTHELPTEXT
 }
@@ -40,6 +40,7 @@ HELPDESCRIPTION
     --verbose|-v	    Show each executed command on stderr.
     --backup|-b		    Create a backup of the original file with file
 			    extension EXT.
+    --test-only		    Just test for change, don't persist.
     --diff-only		    Only show differences done by COMMAND, don't persist.
     --diff		    Also show differences done by COMMAND, and overwrite.
     --diff-cmd CMD	    Use CMD as the diff command.
@@ -70,6 +71,7 @@ do
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--verbose|-v)	shift; isVerbose=t;;
 	--backup|-b)	shift; backupExtension="$1"; shift;;
+	--test-only)	shift; action=testChanges;;
 	--diff-only)	shift; action=diffChanges;;
 	--diff)		shift; action=diffAndOverwrite;;
 	--diff-options)		shift; diffOptions="$1"; shift;;
@@ -96,6 +98,10 @@ typeset file="${!#}"
 overwrite()
 {
     mv -f "$1" "$2"
+}
+testChanges()
+{
+    return 0
 }
 diffChanges()
 {
@@ -131,7 +137,9 @@ checkError()
 ####D echo "**** ${command[0]}"; echo "**** ${command[1]}"; echo "**** ${command[2]}"; exit
 tmpFile=$(mktemp --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || echo "${TEMP:-/tmp}/$(basename -- "$0").$$")
 
-[ "$isVerbose" ] && printf >&2 '%s\n' "${command[*]} '${file}'"
+if [ "$isVerbose" ]; then
+    printf >&2 '%q ' "${command[@]}" "${file}"; printf >&2 \\n
+fi
 
 if [ "$backupExtension" ]; then
     cp --force --preserve "$file" "${file}${backupExtension}" || exit $?
