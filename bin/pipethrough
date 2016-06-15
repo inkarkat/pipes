@@ -8,6 +8,11 @@
 #
 ###############################################################################
 # REVISION	DATE		REMARKS
+#	017	16-Jun-2016	ENH: Add built-in messaging via
+#				--message-on-success, --message-on-failure,
+#				--message-on-abort, --message-subject; this is
+#				easier for the client than checking the script's
+#				exit status.
 #	016	15-Jun-2016	ENH: Support --backup EXT.
 #				ENH: Support --command-arguments N.
 #				ENH: Support --test-only.
@@ -39,7 +44,7 @@ printShortUsage()
 {
     cat <<SHORTHELPTEXT
 Usage:
-    $(basename "$1") [-v|--verbose] [-b|--backup EXT] [--test-only|(--diff-only|--diff [--diff-cmd CMD] [--diff-options OPT])] [--abort-unless-change|--abort-on-change] [-?|-h|--help] ...
+    $(basename "$1") [-v|--verbose] [-b|--backup EXT] [--test-only|(--diff-only|--diff [--diff-cmd CMD] [--diff-options OPT])] [--abort-unless-change|--abort-on-change] ([--message-on-success MSG] [--message-on-failure MSG] [--message-on-abort MSG]|[--message-subject SUBJECT]) [-?|-h|--help] ...
     $(basename "$1") [...] "COMMAND [ARGUMENTS ...]" FILE [, ...]
     $(basename "$1") [...] -- COMMAND [ARGUMENTS ...] -- FILE [, ...]
     $(basename "$1") [...] \; COMMAND [ARGUMENTS ...] \; FILE [, ...]
@@ -80,6 +85,17 @@ HELPDESCRIPTION
 			    change the current FILE.
     --abort-on-change	    Do not process further FILEs if COMMAND changed the
 			    current FILE.
+    --message-on-success MSG
+			    Print MSG to stderr if COMMAND succeeds.
+    --message-on-failure MSG
+			    Print MSG to stderr if COMMAND fails.
+    --message-on-abort MSG  Print MSG to stderr if processing was aborted
+			    (--abort-on-change, --abort-unless-change).
+			    The current FILE can be embedded in the message via
+			    %q.
+    --message-subject SUBJECT
+			    Print a status message (success, failure, abort) to stderr.
+			    Basically all of the --message-on-... options in one.
     --command-arguments|-n N
 			    The COMMAND [ARGUMENTS ...] consists of N arguments;
 			    start accepting FILEs after that.
@@ -101,6 +117,10 @@ commandArgumentNum=
 diffCommand=diff; type -t colordiff >/dev/null && diffCommand=colordiff # Highlight diff output if available.
 diffOptions=-u
 isVerbose=
+messageOnSuccess=
+messageOnFailure=
+messageOnAbort=
+messageSubject=
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -114,6 +134,10 @@ do
 	--diff-cmd)		shift; diffCommand="$1"; shift;;
 	--abort-unless-change)	shift; abortOn=0;;
 	--abort-on-change)	shift; abortOn=1;;
+	--message-on-success)		shift; messageOnSuccess="$1"; shift;;
+	--message-on-failure)		shift; messageOnFailure="$1"; shift;;
+	--message-on-abort)		shift; messageOnAbort="$1"; shift;;
+	--message-subject)		shift; messageSubject="$1"; shift;;
 	--command-arguments|-n)	shift; commandArgumentNum="$1"; shift;;
 	--)		break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printShortUsage "$0"; } >&2; exit 2;;
@@ -121,6 +145,14 @@ do
     esac
 done
 [ $# -eq 0 ] && { printUsage "$0"; exit 2; }
+if [ "$messageSubject" ]; then
+    messageOnSuccess="Successfully performed $messageSubject on %q"
+    messageOnFailure="ERROR: Failed to $messageSubject on %q"
+    case "$abortOn" in
+	0)  messageOnAbort="ERROR: Aborted because $messageSubject did not change %q";;
+	1)  messageOnAbort="ERROR: Aborted because $messageSubject changed %q";;
+    esac
+fi
 
 case "$1" in
     \;|--)
@@ -157,6 +189,11 @@ esac
 
 
 
+message()
+{
+    printf "$1\\n" "$2"
+}
+
 overwrite()
 {
     mv -f "$1" "$2"
@@ -186,9 +223,10 @@ checkAbort()
 	$abortOn)
 	    $action "$1" "$2" || {
 		case $? in
-		    255)    exit 124;;	# special COMMAND exit has precedence over abort
+		    255)    message "$messageOnFailure" "$file"; exit 124;;	# special COMMAND exit has precedence over abort
 		esac
 	    }
+	    message "$messageOnAbort" "$file"
 	    exit 1  # signal abort
 	    ;;
     esac
@@ -216,10 +254,10 @@ do
 	cp --force --preserve "$file" "${file}${backupExtension}" || exit $?
     fi
 
-    "${command[@]}" "$file" > "$tmpFile" && checkAbort "$tmpFile" "$file" && $action "$tmpFile" "$file" || {
+    "${command[@]}" "$file" > "$tmpFile" && checkAbort "$tmpFile" "$file" && $action "$tmpFile" "$file" && message "$messageOnSuccess" "$file" || {
 	case $? in
-	    255)    exit 124;;
-	    *)	    exitStatus=123;;
+	    255)    message "$messageOnFailure" "$file"; exit 124;;
+	    *)	    message "$messageOnFailure" "$file"; exitStatus=123;;
 	esac
     }
 done
