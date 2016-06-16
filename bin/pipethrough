@@ -8,6 +8,7 @@
 #
 ###############################################################################
 # REVISION	DATE		REMARKS
+#	018	17-Jun-2016	BUG: diff arguments are reversed.
 #	017	16-Jun-2016	ENH: Add built-in messaging via
 #				--message-on-success, --message-on-failure,
 #				--message-on-abort, --message-subject; this is
@@ -239,7 +240,7 @@ testChanges()
 }
 diffChanges()
 {
-    eval "$diffCommand" "$diffOptions" '"$1" "$2"'
+    eval "$diffCommand" "$diffOptions" '"$2" "$1"'
     return 0	# Do not interpret differences as failure; we have the separate --abort-on-change and --abort-unless-change for that.
 }
 diffAndOverwrite()
