@@ -13,6 +13,8 @@
 #				--message-on-error, --message-subject; this is
 #				easier for the client than checking the script's
 #				exit status.
+#				ENH: Add --message-on-change and support
+#				checking for changes without error.
 #	016	01-Jan-2004	file creation from pipethrough
 ###############################################################################
 
@@ -20,7 +22,7 @@ printShortUsage()
 {
     cat <<SHORTHELPTEXT
 Usage:
-    $(basename "$1") [-v|--verbose] [-b|--backup EXT] [--test-only|(--diff-only|--diff [--diff-cmd CMD] [--diff-options OPT])] [--error-unless-change|--error-on-change] ([--message-on-success MSG] [--message-on-failure MSG] [--message-on-error MSG]|[--message-subject SUBJECT]) [-?|-h|--help] ...
+    $(basename "$1") [-v|--verbose] [-b|--backup EXT] [--test-only|(--diff-only|--diff [--diff-cmd CMD] [--diff-options OPT])] [--error-unless-change|--error-on-change] ([--message-on-change MSG] [--message-on-success MSG] [--message-on-failure MSG] [--message-on-error MSG]|[--message-subject SUBJECT]) [-?|-h|--help] ...
     $(basename "$1") [...] COMMAND [ARGUMENTS ...] FILE
 SHORTHELPTEXT
 }
@@ -52,6 +54,7 @@ HELPDESCRIPTION
     --diff-options OPT	    Options passed to diff; default -u (unified diff).
     --error-unless-change   Exit 1 if COMMAND didn't change the FILE.
     --error-on-change	    Exit 1 if COMMAND changed the FILE.
+    --message-on-change MSG Print MSG to stderr if COMMAND changed the FILE.
     --message-on-success MSG
 			    Print MSG to stderr if COMMAND succeeds.
     --message-on-failure MSG
@@ -60,8 +63,11 @@ HELPDESCRIPTION
 			    (--error-on-change, --error-unless-change).
 			    FILE can be embedded in the message via %q.
     --message-subject SUBJECT
-			    Print a status message (success, failure, error) to stderr.
-			    Basically all of the --message-on-... options in one.
+			    Print a status message (change, success, failure,
+			    error) to stderr. Basically all of the
+			    --message-on-... options in one. Individual messages
+			    can still be overridden via the --message-on-...
+			    parameters.
 
 $(basename "$1") exits with the following status:
       0 if it succeeds
@@ -74,15 +80,17 @@ HELPTEXT
 
 
 action=overwrite
+check=:
 errorOn=
 backupExtension=
 commandArgumentNum=
 diffCommand=diff; type -t colordiff >/dev/null && diffCommand=colordiff # Highlight diff output if available.
 diffOptions=-u
 isVerbose=
-messageOnSuccess=
-messageOnFailure=
-messageOnError=
+unset messageOnChange
+unset messageOnSuccess
+unset messageOnFailure
+unset messageOnError
 messageSubject=
 while [ $# -ne 0 ]
 do
@@ -95,8 +103,29 @@ do
 	--diff)		shift; action=diffAndOverwrite;;
 	--diff-options)		shift; diffOptions="$1"; shift;;
 	--diff-cmd)		shift; diffCommand="$1"; shift;;
-	--error-unless-change)	shift; errorOn=0;;
-	--error-on-change)	shift; errorOn=1;;
+	--error-unless-change)	shift
+				if [ "$errorOn" = 1 ]; then
+				    echo >&2 "ERROR: Cannot specify both --error-unless-change and --error-on-change at once!"
+				    printShortUsage "$0"
+				    exit 2;
+				fi
+				check=checkError
+				errorOn=0
+				;;
+	--error-on-change)	shift
+				if [ "$errorOn" = 0 ]; then
+				    echo >&2 "ERROR: Cannot specify both --error-unless-change and --error-on-change at once!"
+				    printShortUsage "$0"
+				    exit 2;
+				fi
+				check=checkError
+				errorOn=1
+				;;
+	--message-on-change)	shift
+				[ "$check" = ':' ] && check=checkChanges
+				messageOnChange="$1"
+				shift
+				;;
 	--message-on-success)		shift; messageOnSuccess="$1"; shift;;
 	--message-on-failure)		shift; messageOnFailure="$1"; shift;;
 	--message-on-error)		shift; messageOnError="$1"; shift;;
@@ -113,11 +142,15 @@ if [ $# -lt 2 ]; then
     exit 2
 fi
 if [ "$messageSubject" ]; then
-    messageOnSuccess="Successfully performed $messageSubject on %q"
-    messageOnFailure="ERROR: Failed to $messageSubject on %q"
+    if [ ! "${messageOnChange+t}" ]; then
+	messageOnChange="$messageSubject changed %q"
+	[ "$check" = ':' ] && check=checkChanges
+    fi
+    : ${messageOnSuccess="Successfully performed $messageSubject on %q"}
+    : ${messageOnFailure="ERROR: Failed to $messageSubject on %q"}
     case "$errorOn" in
-	0)  messageOnError="ERROR: $messageSubject did not change %q";;
-	1)  messageOnError="ERROR: $messageSubject changed %q";;
+	0)  : ${messageOnError="ERROR: $messageSubject did not change %q"};;
+	1)  : ${messageOnError="ERROR: $messageSubject changed %q"};;
     esac
 fi
 
@@ -128,7 +161,9 @@ typeset file="${!#}"
 
 message()
 {
-    printf "$1\\n" "$2"
+    if [ "$1" ]; then
+	printf "$1\\n" "$2"
+    fi
 }
 
 overwrite()
@@ -150,13 +185,31 @@ diffAndOverwrite()
     overwrite "$1" "$2"
 }
 
+# The $check is done in a subprocess, so we need to send a signal to the main
+# script in order to pass the information about whether a change has been done.
+mainPID=$$
+isChange=
+onChangeReported()
+{
+    isChange=t
+}
+trap onChangeReported SIGUSR1
+checkChanges()
+{
+    cmp --silent "$1" "$2"
+    case $? in
+	2) exit 1;;	# cmp had trouble
+	1) if [ "$messageOnChange" ]; then kill -SIGUSR1 "$mainPID"; fi;;
+    esac
+}
 checkError()
 {
     [ "$errorOn" ] || return 0
 
     cmp --silent "$1" "$2"
     case $? in
-	2)	    exit 1;;	# cmp had trouble
+	2) exit 1;;	# cmp had trouble
+	1) if [ "$messageOnChange" ]; then kill -SIGUSR1 "$mainPID"; fi;;& # Fall-through here!
 	$errorOn)
 	    $action "$1" "$2" || {
 		case $? in
@@ -182,9 +235,13 @@ if [ "$backupExtension" ]; then
     cp --force --preserve "$file" "${file}${backupExtension}" || exit $?
 fi
 
-"${command[@]}" "$file" > "$tmpFile" && checkError "$tmpFile" "$file" && $action "$tmpFile" "$file" && message "$messageOnSuccess" "$file" || {
-    case $? in
-	255)    message "$messageOnFailure" "$file"; exit 124;;
-	*)	message "$messageOnFailure" "$file"; exit 123;;
-    esac
-}
+"${command[@]}" "$file" > "$tmpFile" && \
+    $check "$tmpFile" "$file" && \
+    $action "$tmpFile" "$file" && \
+    if [ "$isChange" ]; then message "$messageOnChange" "$file"; else message "$messageOnSuccess" "$file"; fi || \
+    {
+	case $? in
+	    255)    message "$messageOnFailure" "$file"; exit 124;;
+	    *)	    message "$messageOnFailure" "$file"; exit 123;;
+	esac
+    }
