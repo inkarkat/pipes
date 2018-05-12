@@ -8,6 +8,13 @@
 #
 ###############################################################################
 # REVISION	DATE		REMARKS
+#	018	17-Jun-2016	BUG: diff arguments are reversed.
+#				ENH: Add --warn-on-change and
+#				--warn-unless-change.
+#				FIX: Correct command-line summary for
+#				--message-... options.
+#				FIX: Don't enable checkChanges on
+#				--message-on-change ''.
 #	017	16-Jun-2016	ENH: Add built-in messaging via
 #				--message-on-success, --message-on-failure,
 #				--message-on-error, --message-subject; this is
@@ -22,7 +29,7 @@ printShortUsage()
 {
     cat <<SHORTHELPTEXT
 Usage:
-    $(basename "$1") [-v|--verbose] [-b|--backup EXT] [--test-only|(--diff-only|--diff [--diff-cmd CMD] [--diff-options OPT])] [--error-unless-change|--error-on-change] ([--message-on-change MSG] [--message-on-success MSG] [--message-on-failure MSG] [--message-on-error MSG]|[--message-subject SUBJECT]) [-?|-h|--help] ...
+    $(basename "$1") [-v|--verbose] [-b|--backup EXT] [--test-only|(--diff-only|--diff [--diff-cmd CMD] [--diff-options OPT])] [--error-unless-change|--error-on-change] [--message-on-change MSG] [--message-on-success MSG] [--message-on-failure MSG] [--message-on-error MSG] ([--message-subject SUBJECT] [--warn-on-change|--warn-unless-change]) [-?|-h|--help] ...
     $(basename "$1") [...] COMMAND [ARGUMENTS ...] FILE
 SHORTHELPTEXT
 }
@@ -68,6 +75,11 @@ HELPDESCRIPTION
 			    --message-on-... options in one. Individual messages
 			    can still be overridden via the --message-on-...
 			    parameters.
+    --warn-on-change	    The status message on change will be a warning
+			    message instead of an informational one.
+    --warn-unless-change    The status message on success (without change) will
+			    be a warning message instead of an informational
+			    one.
 
 $(basename "$1") exits with the following status:
       0 if it succeeds
@@ -87,6 +99,7 @@ commandArgumentNum=
 diffCommand=diff; type -t colordiff >/dev/null && diffCommand=colordiff # Highlight diff output if available.
 diffOptions=-u
 isVerbose=
+warnOn=
 unset messageOnChange
 unset messageOnSuccess
 unset messageOnFailure
@@ -122,7 +135,7 @@ do
 				errorOn=1
 				;;
 	--message-on-change)	shift
-				[ "$check" = ':' ] && check=checkChanges
+				[ "$1" -a "$check" = ':' ] && check=checkChanges
 				messageOnChange="$1"
 				shift
 				;;
@@ -130,6 +143,8 @@ do
 	--message-on-failure)		shift; messageOnFailure="$1"; shift;;
 	--message-on-error)		shift; messageOnError="$1"; shift;;
 	--message-subject)		shift; messageSubject="$1"; shift;;
+	--warn-on-change)		shift; warnOn=1;;
+	--warn-unless-change)		shift; warnOn=0;;
 	--)		break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printShortUsage "$0"; } >&2; exit 2;;
 	*)		break;;
@@ -143,10 +158,21 @@ if [ $# -lt 2 ]; then
 fi
 if [ "$messageSubject" ]; then
     if [ ! "${messageOnChange+t}" ]; then
-	messageOnChange="$messageSubject changed %q"
+	case "$warnOn" in
+	    1)	messageOnChange="Warning: $messageSubject changed %q";;
+	    *)	messageOnChange="$messageSubject changed %q";;
+	esac
 	[ "$check" = ':' ] && check=checkChanges
     fi
-    : ${messageOnSuccess="Successfully performed $messageSubject on %q"}
+    case "$warnOn" in
+	0)  if [ "$check" = ':' ]; then
+		echo >&2 "ERROR: --warn-unless-change cannot be specified when change checking isn't enabled"
+		exit 2
+	    fi
+	    : ${messageOnSuccess="Warning: $messageSubject did not change %q"}
+	    ;;
+	*)  : ${messageOnSuccess="Successfully performed $messageSubject on %q"};;
+    esac
     : ${messageOnFailure="ERROR: Failed to $messageSubject on %q"}
     case "$errorOn" in
 	0)  : ${messageOnError="ERROR: $messageSubject did not change %q"};;
@@ -176,7 +202,7 @@ testChanges()
 }
 diffChanges()
 {
-    eval "$diffCommand" "$diffOptions" '"$1" "$2"'
+    eval "$diffCommand" "$diffOptions" '"$2" "$1"'
     return 0	# Do not interpret differences as failure; we have the separate --error-on-change and --error-unless-change for that.
 }
 diffAndOverwrite()
