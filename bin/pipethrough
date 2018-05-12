@@ -9,6 +9,12 @@
 ###############################################################################
 # REVISION	DATE		REMARKS
 #	018	17-Jun-2016	BUG: diff arguments are reversed.
+#				ENH: Add --warn-on-change and
+#				--warn-unless-change.
+#				FIX: Correct command-line summary for
+#				--message-... options.
+#				FIX: Don't enable checkChanges on
+#				--message-on-change ''.
 #	017	16-Jun-2016	ENH: Add built-in messaging via
 #				--message-on-success, --message-on-failure,
 #				--message-on-abort, --message-subject; this is
@@ -47,7 +53,7 @@ printShortUsage()
 {
     cat <<SHORTHELPTEXT
 Usage:
-    $(basename "$1") [-v|--verbose] [-b|--backup EXT] [--test-only|(--diff-only|--diff [--diff-cmd CMD] [--diff-options OPT])] [--abort-unless-change|--abort-on-change] ([--message-on-change MSG] [--message-on-success MSG] [--message-on-failure MSG] [--message-on-abort MSG]|[--message-subject SUBJECT]) [-?|-h|--help] ...
+$(basename "$1") [-v|--verbose] [-b|--backup EXT] [--test-only|(--diff-only|--diff [--diff-cmd CMD] [--diff-options OPT])] [--abort-unless-change|--abort-on-change] [--message-on-change MSG] [--message-on-success MSG] [--message-on-failure MSG] [--message-on-abort MSG] ([--message-subject SUBJECT] [--warn-on-change|--warn-unless-change]) [-?|-h|--help] ...
     $(basename "$1") [...] "COMMAND [ARGUMENTS ...]" FILE [, ...]
     $(basename "$1") [...] -- COMMAND [ARGUMENTS ...] -- FILE [, ...]
     $(basename "$1") [...] \; COMMAND [ARGUMENTS ...] \; FILE [, ...]
@@ -103,6 +109,11 @@ HELPDESCRIPTION
 			    --message-on-... options in one. Individual messages
 			    can still be overridden via the --message-on-...
 			    parameters.
+    --warn-on-change	    The status message on change will be a warning
+			    message instead of an informational one.
+    --warn-unless-change    The status message on success (without change) will
+			    be a warning message instead of an informational
+			    one.
     --command-arguments|-n N
 			    The COMMAND [ARGUMENTS ...] consists of N arguments;
 			    start accepting FILEs after that.
@@ -125,6 +136,7 @@ commandArgumentNum=
 diffCommand=diff; type -t colordiff >/dev/null && diffCommand=colordiff # Highlight diff output if available.
 diffOptions=-u
 isVerbose=
+warnOn=
 unset messageOnChange
 unset messageOnSuccess
 unset messageOnFailure
@@ -160,7 +172,7 @@ do
 				abortOn=1
 				;;
 	--message-on-change)	shift
-				[ "$check" = ':' ] && check=checkChanges
+				[ "$1" -a "$check" = ':' ] && check=checkChanges
 				messageOnChange="$1"
 				shift
 				;;
@@ -168,6 +180,8 @@ do
 	--message-on-failure)		shift; messageOnFailure="$1"; shift;;
 	--message-on-abort)		shift; messageOnAbort="$1"; shift;;
 	--message-subject)		shift; messageSubject="$1"; shift;;
+	--warn-on-change)		shift; warnOn=1;;
+	--warn-unless-change)		shift; warnOn=0;;
 	--command-arguments|-n)	shift; commandArgumentNum="$1"; shift;;
 	--)		break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printShortUsage "$0"; } >&2; exit 2;;
@@ -177,10 +191,21 @@ done
 [ $# -eq 0 ] && { printUsage "$0"; exit 2; }
 if [ "$messageSubject" ]; then
     if [ ! "${messageOnChange+t}" ]; then
-	messageOnChange="$messageSubject changed %q"
+	case "$warnOn" in
+	    1)	messageOnChange="Warning: $messageSubject changed %q";;
+	    *)	messageOnChange="$messageSubject changed %q";;
+	esac
 	[ "$check" = ':' ] && check=checkChanges
     fi
-    : ${messageOnSuccess="Successfully performed $messageSubject on %q"}
+    case "$warnOn" in
+	0)  if [ "$check" = ':' ]; then
+		echo >&2 "ERROR: --warn-unless-change cannot be specified when change checking isn't enabled"
+		exit 2
+	    fi
+	    : ${messageOnSuccess="Warning: $messageSubject did not change %q"}
+	    ;;
+	*)  : ${messageOnSuccess="Successfully performed $messageSubject on %q"};;
+    esac
     : ${messageOnFailure="ERROR: Failed to $messageSubject on %q"}
     case "$abortOn" in
 	0)  : ${messageOnAbort="ERROR: Aborted because $messageSubject did not change %q"};;
