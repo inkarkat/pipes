@@ -8,6 +8,10 @@
 #
 ###############################################################################
 # REVISION	DATE		REMARKS
+#	019	13-May-2018	ENH: Add --piped option for actual piping via
+#				stdin. Some COMMANDs do not support FILE
+#				arguments or behave differently (e.g.
+#				colordiff).
 #	018	17-Jun-2016	BUG: diff arguments are reversed.
 #				ENH: Add --warn-on-change and
 #				--warn-unless-change.
@@ -29,7 +33,7 @@ printShortUsage()
 {
     cat <<SHORTHELPTEXT
 Usage:
-    $(basename "$1") [-v|--verbose] [-b|--backup EXT] [--test-only|(--diff-only|--diff [--diff-cmd CMD] [--diff-options OPT])] [--error-unless-change|--error-on-change] [--message-on-change MSG] [--message-on-success MSG] [--message-on-failure MSG] [--message-on-error MSG] ([--message-subject SUBJECT] [--warn-on-change|--warn-unless-change]) [-?|-h|--help] ...
+    $(basename "$1") [-v|--verbose] [-p|--piped] [-b|--backup EXT] [--test-only|(--diff-only|--diff [--diff-cmd CMD] [--diff-options OPT])] [--error-unless-change|--error-on-change] [--message-on-change MSG] [--message-on-success MSG] [--message-on-failure MSG] [--message-on-error MSG] ([--message-subject SUBJECT] [--warn-on-change|--warn-unless-change]) [-?|-h|--help] ...
     $(basename "$1") [...] COMMAND [ARGUMENTS ...] FILE
 SHORTHELPTEXT
 }
@@ -45,13 +49,16 @@ MOREHELP
 printLongUsage()
 {
     cat <<HELPDESCRIPTION
-Pipes FILE through an external COMMAND and writes the output back into the same
-FILE.
+Passes FILE through an external COMMAND (by passing the FILE spec as the last
+command-line argument, or alternatively the FILE contents through stdin) and
+writes the output back into the same FILE.
 HELPDESCRIPTION
     echo
     printShortUsage "$1"
     cat <<HELPTEXT
     --verbose|-v	    Show each executed command on stderr.
+    --piped|-p		    Pass FILE contents via stdin into COMMAND instead of
+			    by appending FILE as the last command-line argument.
     --backup|-b		    Create a backup of the original file with file
 			    extension EXT.
     --test-only		    Just test for change, don't persist.
@@ -98,6 +105,8 @@ backupExtension=
 commandArgumentNum=
 diffCommand=diff; type -t colordiff >/dev/null && diffCommand=colordiff # Highlight diff output if available.
 diffOptions=-u
+isPiped=
+verbosePiped=
 isVerbose=
 warnOn=
 unset messageOnChange
@@ -110,6 +119,7 @@ do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--verbose|-v)	shift; isVerbose=t;;
+	--piped|-p)	shift; isPiped=t; verbosePiped='< ';;
 	--backup|-b)	shift; backupExtension="$1"; shift;;
 	--test-only)	shift; action=testChanges;;
 	--diff-only)	shift; action=diffChanges;;
@@ -254,14 +264,19 @@ checkError()
 tmpFile=$(mktemp --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || echo "${TEMP:-/tmp}/$(basename -- "$0").$$")
 
 if [ "$isVerbose" ]; then
-    printf >&2 '%q ' "${command[@]}" "${file}"; printf >&2 \\n
+    printf >&2 '%q ' "${command[@]}"
+    printf >&2 "${verbosePiped}%q\n" "${file}"
 fi
 
 if [ "$backupExtension" ]; then
     cp --force --preserve "$file" "${file}${backupExtension}" || exit $?
 fi
 
-"${command[@]}" "$file" > "$tmpFile" && \
+if [ "$isPiped" ]; then
+    "${command[@]}" < "$file" > "$tmpFile"
+else
+    "${command[@]}" "$file" > "$tmpFile"
+fi && \
     $check "$tmpFile" "$file" && \
     $action "$tmpFile" "$file" && \
     if [ "$isChange" ]; then message "$messageOnChange" "$file"; else message "$messageOnSuccess" "$file"; fi || \
