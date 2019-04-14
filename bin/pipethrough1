@@ -160,7 +160,7 @@ do
 	*)		break;;
     esac
 done
-[ $# -eq 0 ] && { printUsage "$0"; exit 2; }
+[ $# -eq 0 ] && { printUsage "$0" >&2; exit 2; }
 if [ $# -lt 2 ]; then
     echo >&2 "ERROR: No FILE to pipe."
     printUsage "$0"
