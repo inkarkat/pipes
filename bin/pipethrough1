@@ -8,6 +8,10 @@
 #
 ###############################################################################
 # REVISION	DATE		REMARKS
+#	020	15-Apr-2019	Preserve original file mode by using cp && rm
+#				instead of mv: "In the absence of --preserve,
+#				the permissions of existing destination files
+#				are unchanged."
 #	019	13-May-2018	ENH: Add --piped option for actual piping via
 #				stdin. Some COMMANDs do not support FILE
 #				arguments or behave differently (e.g.
@@ -204,7 +208,7 @@ message()
 
 overwrite()
 {
-    mv -f "$1" "$2"
+    cp --force -- "$1" "$2" && rm --force -- "$1"
 }
 testChanges()
 {
