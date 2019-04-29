@@ -35,20 +35,14 @@
 
 printShortUsage()
 {
-    cat <<SHORTHELPTEXT
-Usage:
-    $(basename "$1") [-v|--verbose] [-p|--piped] [-b|--backup EXT] [--test-only|(--diff-only|--diff [--diff-cmd CMD] [--diff-options OPT])] [--error-unless-change|--error-on-change] [--message-on-change MSG] [--message-on-success MSG] [--message-on-failure MSG] [--message-on-error MSG] ([--message-subject SUBJECT] [--warn-on-change|--warn-unless-change]) [-?|-h|--help] ...
-    $(basename "$1") [...] COMMAND [ARGUMENTS ...] FILE
-SHORTHELPTEXT
+    printf 'Usage: %q %s\n' $(basename "$1") '[-v|--verbose] [-p|--piped] [-b|--backup EXT] [--test-only|(--diff-only|--diff [--diff-cmd CMD] [--diff-options OPT])] [--error-unless-change|--error-on-change] [--message-on-change MSG] [--message-on-success MSG] [--message-on-failure MSG] [--message-on-error MSG] ([--message-subject SUBJECT] [--warn-on-change|--warn-unless-change]) COMMAND [ARGUMENTS ...] FILE [-?|-h|--help]'
 }
 printUsage()
 {
     # This is the short help when launched with no or incorrect arguments.
     # It is printed to stderr to avoid accidental processing.
     printShortUsage "$1" >&2
-    cat >&2 <<MOREHELP
-Try "$(basename "$1")" --help for more information.
-MOREHELP
+    printf >&2 'Try %q --help for more information.\n' "$(basename "$1")"
 }
 printLongUsage()
 {
@@ -91,8 +85,7 @@ HELPDESCRIPTION
     --warn-unless-change    The status message on success (without change) will
 			    be a warning message instead of an informational
 			    one.
-
-$(basename "$1") exits with the following status:
+EXIT STATUS:
       0 if it succeeds
     123 if the COMMAND exited with status 1-125
     124 if the COMMAND exited with status 255
