@@ -37,7 +37,9 @@
 
 printShortUsage()
 {
-    printf 'Usage: %q %s\n' $(basename "$1") '[-v|--verbose] [-p|--piped] [-b|--backup EXT] [--test-only|(--diff-only|--diff [--diff-cmd CMD] [--diff-options OPT])] [--error-unless-change|--error-on-change] [--message-on-change MSG] [--message-on-success MSG] [--message-on-failure MSG] [--message-on-error MSG] ([--message-subject SUBJECT] [--warn-on-change|--warn-unless-change]) COMMAND [ARGUMENTS ...] FILE [-?|-h|--help]'
+    printf 'Usage: %q %s\n' $(basename "$1") '[-v|--verbose] [-p|--piped] [-b|--backup EXT] [--test-only|(--diff-only|--diff [--diff-cmd CMD] [--diff-options OPT])] [--error-unless-change|--error-on-change] [--message-on-change MSG] [--message-on-success MSG] [--message-on-failure MSG] [--message-on-error MSG] ([--message-subject SUBJECT] [--warn-on-change|--warn-unless-change]) [-?|-h|--help] ...'
+    printf 'Usage: %q %s\n' $(basename "$1") '... COMMAND [ARGUMENTS ...] FILE'
+    printf 'Usage: %q %s\n' $(basename "$1") '-c|--command "COMMANDLINE [{}] ..." FILE'
 }
 printUsage()
 {
