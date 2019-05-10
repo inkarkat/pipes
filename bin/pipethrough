@@ -8,6 +8,9 @@
 #
 ###############################################################################
 # REVISION	DATE		REMARKS
+#	022	08-May-2019	FIX: Need to turn off globbing when parsing
+#				command; else, a passed \* argument would turn
+#				into the current list of files.
 #	021	30-Apr-2019	ENH: Also support {} placeholder in COMMAND
 #				as an alternative to appending the file.
 #	020	15-Apr-2019	Preserve original file mode by using cp && rm
@@ -251,7 +254,9 @@ case "$1" in
 		shift
 	    done
 	else
+	    set -o noglob
 	    eval "typeset -a command=($1)"
+	    set +o noglob
 	    shift
 	fi
 	;;
