@@ -65,10 +65,10 @@
 printShortUsage()
 {
     printf 'Usage: %q %s\n' $(basename "$1") '[-v|--verbose] [-p|--piped] [-b|--backup EXT] [--test-only|(--diff-only|--diff [--diff-cmd CMD] [--diff-options OPT])] [--abort-unless-change|--abort-on-change] [--message-on-change MSG] [--message-on-success MSG] [--message-on-failure MSG] [--message-on-abort MSG] ([--message-subject SUBJECT] [--warn-on-change|--warn-unless-change]) [-?|-h|--help] ...'
-    printf 'Usage: %q %s\n' $(basename "$1") '[...] "COMMAND [ARGUMENTS ...]" FILE [, ...]'
-    printf 'Usage: %q %s\n' $(basename "$1") '[...] -- COMMAND [ARGUMENTS ...] -- FILE [, ...]'
-    printf 'Usage: %q %s\n' $(basename "$1") '[...] \; COMMAND [ARGUMENTS ...] \; FILE [, ...]'
-    printf 'Usage: %q %s\n' $(basename "$1") '[...] -n|--command-arguments N COMMAND [ARGUMENTS ...] FILE [, ...]'
+    printf 'Usage: %q %s\n' $(basename "$1") '[...] -c|--command "COMMANDLINE [{}] ..." [-c ...] FILE [, ...]'
+    printf 'Usage: %q %s\n' $(basename "$1") '[...] -- SIMPLECOMMAND [ARGUMENTS ...] -- FILE [, ...]'
+    printf 'Usage: %q %s\n' $(basename "$1") '[...] \; SIMPLECOMMAND [ARGUMENTS ...] \; FILE [, ...]'
+    printf 'Usage: %q %s\n' $(basename "$1") '[...] -n|--command-arguments N SIMPLECOMMAND [ARGUMENTS ...] FILE [, ...]'
 }
 printUsage()
 {
@@ -139,6 +139,8 @@ HELPTEXT
 }
 
 
+isNeedEval=
+typeset -a commands=()
 action=overwrite
 check=:
 abortOn=
@@ -159,6 +161,7 @@ while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--command|-c)	shift; commands+=(${commands:+;} "$1"); isNeedEval=t; shift;;
 	--verbose|-v)	shift; isVerbose=t;;
 	--piped|-p)	shift; isPiped=t; verbosePiped='< ';;
 	--backup|-b)	shift; backupExtension="$1"; shift;;
@@ -202,7 +205,10 @@ do
 	*)		break;;
     esac
 done
-[ $# -eq 0 ] && { printUsage "$0" >&2; exit 2; }
+if [ $# -eq 0 ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
 if [ "$messageSubject" ]; then
     if [ ! "${messageOnChange+t}" ]; then
 	case "$warnOn" in
@@ -231,36 +237,37 @@ case "$1" in
     \;|--)
 	separator=$1
 	shift
-	typeset -a command=()
 	while [ "$1" != "$separator" ]
 	do
-	    command+=("$1")
+	    simpleCommand+=("$1")
 	    shift
 	done
 	shift
-
-	if [ ${#command[@]} -eq 0 ]; then
-	    echo >&2 "ERROR: No COMMAND specified"
-	    printUsage "$0"
-	    exit 2
-	fi
 	;;
     *)
 	if [ "$commandArgumentNum" ]; then
-	    typeset -a command=()
 	    for (( i = 0; i < $commandArgumentNum; i++ ))
 	    do
-		command+=("$1")
+		simpleCommand+=("$1")
 		shift
 	    done
-	else
-	    set -o noglob
-	    eval "typeset -a command=($1)"
-	    set +o noglob
-	    shift
 	fi
 	;;
 esac
+if [ ${#simpleCommand[@]} -gt 0 ]; then
+    if [ "$isNeedEval" ]; then
+	# Combine --command and SIMPLECOMMAND; need to quote SIMPLECOMMAND to
+	# undo the effects of eval.
+	printf -v quotedSimpleCommand '%q ' "${simpleCommand[@]}"
+	commands+=(${commands:+;} "${quotedSimpleCommand//\\\{\\\}/\{\}}")	# %q escapes {}, we don't want that to have it interpolated later.
+    else
+	commands=("${simpleCommand[@]}")
+    fi
+fi
+if [ ${#commands[@]} -eq 0 ]; then
+    echo >&2 'ERROR: No COMMAND(s) specified; need to pass -c|--command "COMMANDLINE", or SIMPLECOMMAND.'
+    exit 2
+fi
 
 
 
@@ -329,7 +336,7 @@ checkAbort()
 
 
 
-####D echo "**** ${command[0]}"; echo "**** ${command[1]}"; echo "**** ${command[2]}"; exit
+####D echo "**** $isNeedEval ${commands[0]}"; echo "**** ${commands[1]}"; echo "**** ${commands[2]}"; exit
 if [ $# -eq 0 ]; then
     echo >&2 "ERROR: No FILEs to pipe."
     printUsage "$0"
@@ -341,12 +348,14 @@ for file
 do
     tmpFile=$(mktemp --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || echo "${TEMP:-/tmp}/$(basename -- "$0").$$")
 
-    typeset -a interpolatedCommand=("${command[@]//\{\}/$file}")
-    typeset -a f=("$file")
-    [ "${interpolatedCommand[*]}" = "${command[*]}" ] || f=()
+    interpolatedFile="$file"; [ "$isNeedEval" ] && printf -v interpolatedFile '%q' "$file"
+    typeset -a interpolatedCommands=("${commands[@]//\{\}/$interpolatedFile}")
+    typeset -a f=("$interpolatedFile")
+    [ "${interpolatedCommands[*]}" = "${commands[*]}" ] || f=()
 
     if [ "$isVerbose" ]; then
-	printf >&2 '%q ' "${interpolatedCommand[@]}"
+	quoter='%q'; [ "$isNeedEval" ] && quoter='%s'
+	printf >&2 "$quoter " "${interpolatedCommands[@]}"
 	printf >&2 "${verbosePiped}%q\n" "${file}"
     fi
 
@@ -356,14 +365,22 @@ do
 
     isChange=
     if [ "$isPiped" ]; then
-	# Note: Use $interpolatedCommand instead of $command here; any {} would
+	# Note: Use $interpolatedCommands instead of $commands here; any {} would
 	# be expanded in there, which might only make sense for weird corner
 	# cases, so why not. Another argument is that we simply always log
-	# $interpolatedCommand with --verbose, so the action should be
+	# $interpolatedCommands with --verbose, so the action should be
 	# consistent with that.
-	"${interpolatedCommand[@]}" < "$file" > "$tmpFile"
+	if [ "$isNeedEval" ]; then
+	    eval "${interpolatedCommands[@]}" < "$file" > "$tmpFile"
+	else
+	    "${interpolatedCommands[@]}" < "$file" > "$tmpFile"
+	fi
     else
-	"${interpolatedCommand[@]}" "${f[@]}" > "$tmpFile"
+	if [ "$isNeedEval" ]; then
+	    eval "${interpolatedCommands[@]}" "${f[@]}" > "$tmpFile"
+	else
+	    "${interpolatedCommands[@]}" "${f[@]}" > "$tmpFile"
+	fi
     fi && \
 	$check "$tmpFile" "$file" && \
 	$action "$tmpFile" "$file" && \
