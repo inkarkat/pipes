@@ -3,63 +3,9 @@
 ##
 # FILE: 	pipethrough
 # PRODUCT:	tools
-# AUTHOR: 	/^--
+# AUTHOR: 	Ingo Karkat <ingo@karkat.de>
 # DATE CREATED:	01-Jan-2004
 #
-###############################################################################
-# REVISION	DATE		REMARKS
-#	022	08-May-2019	FIX: Need to turn off globbing when parsing
-#				command; else, a passed \* argument would turn
-#				into the current list of files.
-#	021	30-Apr-2019	ENH: Also support {} placeholder in COMMAND
-#				as an alternative to appending the file.
-#	020	15-Apr-2019	Preserve original file mode by using cp && rm
-#				instead of mv: "In the absence of --preserve,
-#				the permissions of existing destination files
-#				are unchanged."
-#	019	13-May-2018	ENH: Add --piped option for actual piping via
-#				stdin. Some COMMANDs do not support FILE
-#				arguments or behave differently (e.g.
-#				colordiff).
-#	018	17-Jun-2016	BUG: diff arguments are reversed.
-#				ENH: Add --warn-on-change and
-#				--warn-unless-change.
-#				FIX: Correct command-line summary for
-#				--message-... options.
-#				FIX: Don't enable checkChanges on
-#				--message-on-change ''.
-#	017	16-Jun-2016	ENH: Add built-in messaging via
-#				--message-on-success, --message-on-failure,
-#				--message-on-abort, --message-subject; this is
-#				easier for the client than checking the script's
-#				exit status.
-#				ENH: Add --message-on-change and support
-#				checking for changes without aborting.
-#	016	15-Jun-2016	ENH: Support --backup EXT.
-#				ENH: Support --command-arguments N.
-#				ENH: Support --test-only.
-#				ENH: Use on-demand quoting of all command
-#				arguments and file when using --verbose.
-#	015	14-Jun-2016	Use eval() instead of $SHELL, printf instead of
-#				echo.
-#				ENH: Support -- COMMAND -- (inspired from the
-#				canonical separator between options and
-#				arguments) and \; COMMAND \; (inspired by find
-#				-exec) in addition to a quoted (single-argument)
-#				COMMAND; quoting may be cumbersome.
-#				Support --help.
-#				ENH: Support (xargs-like) exit statuses and
-#				aborting the iteration via exit 255.
-#				ENH: Support diffing, abort on [no] change.
-#				ENH: Support verbose mode.
-#	014	12-Apr-2016	Use mktemp, $SHELL.
-#	013	26-May-2009	Replaced Korn Shell'ish 'print -R' with 'echo'.
-#	0.12	26-Sep-2006	Simplified print command.
-#	0.11	18-Oct-2005	BF: fixed unwanted escaping in echo.
-#	0.10	01-Jun-2004	BF: invoking ${command} via shell, because
-#				commands with input redirection (e.g. "tr '\\'
-#				'/' <") were hanging.
-#	0.01	01-Jan-2004	file creation
 ###############################################################################
 
 printShortUsage()

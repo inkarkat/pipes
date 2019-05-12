@@ -3,36 +3,9 @@
 ##
 # FILE: 	pipethrough1
 # PRODUCT:	tools
-# AUTHOR: 	/^--
+# AUTHOR: 	Ingo Karkat <ingo@karkat.de>
 # DATE CREATED:	15-Jun-2016
 #
-###############################################################################
-# REVISION	DATE		REMARKS
-#	021	30-Apr-2019	ENH: Also support {} placeholder in COMMAND
-#				as an alternative to appending the file.
-#	020	15-Apr-2019	Preserve original file mode by using cp && rm
-#				instead of mv: "In the absence of --preserve,
-#				the permissions of existing destination files
-#				are unchanged."
-#	019	13-May-2018	ENH: Add --piped option for actual piping via
-#				stdin. Some COMMANDs do not support FILE
-#				arguments or behave differently (e.g.
-#				colordiff).
-#	018	17-Jun-2016	BUG: diff arguments are reversed.
-#				ENH: Add --warn-on-change and
-#				--warn-unless-change.
-#				FIX: Correct command-line summary for
-#				--message-... options.
-#				FIX: Don't enable checkChanges on
-#				--message-on-change ''.
-#	017	16-Jun-2016	ENH: Add built-in messaging via
-#				--message-on-success, --message-on-failure,
-#				--message-on-error, --message-subject; this is
-#				easier for the client than checking the script's
-#				exit status.
-#				ENH: Add --message-on-change and support
-#				checking for changes without error.
-#	016	01-Jan-2004	file creation from pipethrough
 ###############################################################################
 
 printShortUsage()
