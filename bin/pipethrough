@@ -377,9 +377,9 @@ do
 	# $interpolatedCommands with --verbose, so the action should be
 	# consistent with that.
 	if [ "$isNeedEval" ]; then
-	    eval "${interpolatedCommands[@]}" < "$file" > "$tmpFile"
+	    < "$file" eval "${interpolatedCommands[@]}" > "$tmpFile"
 	else
-	    "${interpolatedCommands[@]}" < "$file" > "$tmpFile"
+	    < "$file" "${interpolatedCommands[@]}" > "$tmpFile"
 	fi
     else
 	if [ "$isNeedEval" ]; then
