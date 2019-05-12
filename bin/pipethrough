@@ -259,6 +259,7 @@ if [ ${#simpleCommand[@]} -gt 0 ]; then
 	# Combine --command and SIMPLECOMMAND; need to quote SIMPLECOMMAND to
 	# undo the effects of eval.
 	printf -v quotedSimpleCommand '%q ' "${simpleCommand[@]}"
+	quotedSimpleCommand="${quotedSimpleCommand% }"
 	commands+=(${commands:+;} "${quotedSimpleCommand//\\\{\\\}/\{\}}")	# %q escapes {}, we don't want that to have it interpolated later.
     else
 	commands=("${simpleCommand[@]}")
