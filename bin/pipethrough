@@ -356,12 +356,13 @@ do
 
     if [ "$isVerbose" ]; then
 	quoter='%q'; [ "$isNeedEval" ] && quoter='%s'
-	typeset -a quotedArgs=("${interpolatedCommands[@]}" "${f[@]}")
-	[ ${#f[@]} -eq 0 -a -n "$isPiped" ] && quotedArgs+=("$interpolatedFile")
-	quotedArgLast=$((${#quotedArgs[@]} - 1))
-	[ $quotedArgLast -gt 0 ] && printf >&2 "$quoter " "${quotedArgs[@]:0:$quotedArgLast}"
-	[ "$verbosePiped" ] && printf >&2 "$verbosePiped "
-	printf >&2 "${quoter}\n" "${quotedArgs[@]:$quotedArgLast}"
+	if [ "$isPiped" ]; then
+	    [ ${#f[@]} -eq 0 -a -n "$isPiped" ] && f=("$interpolatedFile")
+	    printf "< $quoter " "${f[@]}"
+	    f=()
+	fi
+	printf -v verboseCommand "$quoter " "${interpolatedCommands[@]}" "${f[@]}"
+	printf >&2 "%s\n" "${verboseCommand% }"
     fi
 
     if [ "$backupExtension" ]; then

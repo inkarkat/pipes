@@ -85,63 +85,63 @@ assert_modifications()
 @test "--piped --command, two files appended" {
     run pipethrough --piped --verbose --command "$commandSingleQuoted" "$foo" "$bar"
 
-    [ "${lines[0]}" = "$commandSingleQuoted < $foo" ]
-    [ "${lines[1]}" = "$commandSingleQuoted < $barEscaped" ]
+    [ "${lines[0]}" = "< $foo $commandSingleQuoted" ]
+    [ "${lines[1]}" = "< $barEscaped $commandSingleQuoted" ]
     assert_modifications
 }
 
 @test "--piped --command, two files via {}" {
     run pipethrough --piped --verbose --command "$commandSingleQuoted {}" "$foo" "$bar"
 
-    [ "${lines[0]}" = "$commandSingleQuoted $foo < $foo" ]
-    [ "${lines[1]}" = "$commandSingleQuoted $barEscaped < $barEscaped" ]
+    [ "${lines[0]}" = "< $foo $commandSingleQuoted $foo" ]
+    [ "${lines[1]}" = "< $barEscaped $commandSingleQuoted $barEscaped" ]
     assert_modifications
 }
 
 @test "--piped -- simple --, two files appended" {
     run pipethrough --piped --verbose -- "${commandArgs[@]}" -- "$foo" "$bar"
 
-    [ "${lines[0]}" = "$commandEscaped < $foo" ]
-    [ "${lines[1]}" = "$commandEscaped < $barEscaped" ]
+    [ "${lines[0]}" = "< $foo $commandEscaped" ]
+    [ "${lines[1]}" = "< $barEscaped $commandEscaped" ]
     assert_modifications
 }
 
 @test "--piped -- simple --, two files via {}" {
     run pipethrough --piped --verbose -- "${commandArgs[@]}" {} -- "$foo" "$bar"
 
-    [ "${lines[0]}" = "$commandEscaped $foo < $foo" ]
-    [ "${lines[1]}" = "$commandEscaped $barEscaped < $barEscaped" ]
+    [ "${lines[0]}" = "< $foo $commandEscaped $foo" ]
+    [ "${lines[1]}" = "< $barEscaped $commandEscaped $barEscaped" ]
     assert_modifications
 }
 
 @test "--piped ; simple ;, two files appended" {
     run pipethrough --piped --verbose \; "${commandArgs[@]}" \; "$foo" "$bar"
 
-    [ "${lines[0]}" = "$commandEscaped < $foo" ]
-    [ "${lines[1]}" = "$commandEscaped < $barEscaped" ]
+    [ "${lines[0]}" = "< $foo $commandEscaped" ]
+    [ "${lines[1]}" = "< $barEscaped $commandEscaped" ]
     assert_modifications
 }
 
 @test "--piped ; simple ;, two files via {}" {
     run pipethrough --piped --verbose \; "${commandArgs[@]}" {} \; "$foo" "$bar"
 
-    [ "${lines[0]}" = "$commandEscaped $foo < $foo" ]
-    [ "${lines[1]}" = "$commandEscaped $barEscaped < $barEscaped" ]
+    [ "${lines[0]}" = "< $foo $commandEscaped $foo" ]
+    [ "${lines[1]}" = "< $barEscaped $commandEscaped $barEscaped" ]
     assert_modifications
 }
 
 @test "--piped -n simple, two files appended" {
     run pipethrough --piped --verbose --command-arguments 3 "${commandArgs[@]}" "$foo" "$bar"
 
-    [ "${lines[0]}" = "$commandEscaped < $foo" ]
-    [ "${lines[1]}" = "$commandEscaped < $barEscaped" ]
+    [ "${lines[0]}" = "< $foo $commandEscaped" ]
+    [ "${lines[1]}" = "< $barEscaped $commandEscaped" ]
     assert_modifications
 }
 
 @test "--piped -n simple, two files via {}" {
     run pipethrough --piped --verbose --command-arguments 4 "${commandArgs[@]}" {} "$foo" "$bar"
 
-    [ "${lines[0]}" = "$commandEscaped $foo < $foo" ]
-    [ "${lines[1]}" = "$commandEscaped $barEscaped < $barEscaped" ]
+    [ "${lines[0]}" = "< $foo $commandEscaped $foo" ]
+    [ "${lines[1]}" = "< $barEscaped $commandEscaped $barEscaped" ]
     assert_modifications
 }
