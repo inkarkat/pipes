@@ -356,7 +356,8 @@ do
     if [ "$isVerbose" ]; then
 	quoter='%q'; [ "$isNeedEval" ] && quoter='%s'
 	printf >&2 "$quoter " "${interpolatedCommands[@]}"
-	printf >&2 "${verbosePiped}%q\n" "${file}"
+	[ ${#f[@]} -eq 0 ] && quoter='%s'
+	printf >&2 "${verbosePiped}${quoter}\n" "${f[@]}"
     fi
 
     if [ "$backupExtension" ]; then
