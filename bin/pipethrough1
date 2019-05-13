@@ -7,6 +7,14 @@
 # DATE CREATED:	15-Jun-2016
 #
 ###############################################################################
+# CONTENTS:
+#   Pass one FILE individually through external COMMAND and write output back into
+#   the same file.
+#
+# REMARKS:
+#
+# @(#)pipethrough1	$Id$	tools
+###############################################################################
 
 printShortUsage()
 {
@@ -24,7 +32,7 @@ printUsage()
 printLongUsage()
 {
     cat <<HELPDESCRIPTION
-Passes FILE through an external COMMAND (by passing the FILE spec as the last
+Passes FILE through external COMMAND(s) (by passing the FILE spec as the last
 command-line argument, or replacing any {} marker inside COMMAND, or
 alternatively piping the FILE contents in through standard input) and writes the
 output back into the same FILE.

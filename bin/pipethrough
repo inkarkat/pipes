@@ -7,6 +7,14 @@
 # DATE CREATED:	01-Jan-2004
 #
 ###############################################################################
+# CONTENTS:
+#   Pass FILEs individually through external COMMAND and write output back into
+#   the same file.
+#
+# REMARKS:
+#
+# @(#)pipethrough	$Id$	tools
+###############################################################################
 
 printShortUsage()
 {
@@ -26,11 +34,11 @@ printUsage()
 printLongUsage()
 {
     cat <<HELPDESCRIPTION
-Passes FILEs individually through an external COMMAND (by passing the FILE spec
+Passes FILEs individually through external COMMAND(s) (by passing the FILE spec
 as the last command-line argument, or replacing any {} marker inside COMMAND, or
 alternatively piping the FILE contents in through standard input) and writes the
 output back into the same FILE.
-The COMMAND (and its ARGUMENTS) can be specified in various ways: As one quoted
+COMMAND (and its ARGUMENTS) can be specified in various ways: As one quoted
 argument, separated by special arguments -- or \;, or (especially useful in
 scripts when you know the \${#ARGS[@]} but cannot influence the contents) by
 number of arguments.
