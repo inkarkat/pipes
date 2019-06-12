@@ -18,7 +18,7 @@
 
 printShortUsage()
 {
-    printf 'Usage: %q %s\n' $(basename "$1") '[-v|--verbose] [-p|--piped] [-b|--backup EXT] [--test-only|(--diff-only|--diff [--diff-cmd CMD] [--diff-options OPT])] [--abort-unless-change|--abort-on-change] [--message-on-change MSG] [--message-on-success MSG] [--message-on-failure MSG] [--message-on-abort MSG] ([--message-subject SUBJECT] [--warn-on-change|--warn-unless-change]) [-?|-h|--help] ...'
+    printf 'Usage: %q %s\n' $(basename "$1") '[-v|--verbose] [-p|--piped] [-b|--backup EXT] [--test-only|(--diff-only|--diff [--diff-cmd CMD] [--diff-options OPT])] [--abort-unless-change|--abort-on-change] [--message-on-change MSG] [--message-on-success MSG] [--message-on-failure MSG] [--message-on-abort MSG] [--message-subject SUBJECT [--warn-on-change|--warn-unless-change]] [-?|-h|--help] ...'
     printf 'Usage: %q %s\n' $(basename "$1") '[...] -c|--command "COMMANDLINE [{}] ..." [-c ...] FILE [, ...]'
     printf 'Usage: %q %s\n' $(basename "$1") '[...] -- SIMPLECOMMAND [ARGUMENTS ...] -- FILE [, ...]'
     printf 'Usage: %q %s\n' $(basename "$1") '[...] \; SIMPLECOMMAND [ARGUMENTS ...] \; FILE [, ...]'
@@ -62,7 +62,9 @@ HELPDESCRIPTION
 			    current FILE.
     --message-on-change MSG Print MSG to stderr if COMMAND changed the FILE.
     --message-on-success MSG
-			    Print MSG to stderr if COMMAND succeeds.
+			    Print MSG to stderr if COMMAND succeeds. If
+			    --message-on-change is also given, this will be the
+			    warning that no change happened.
     --message-on-failure MSG
 			    Print MSG to stderr if COMMAND fails.
     --message-on-abort MSG  Print MSG to stderr if processing was aborted
@@ -75,11 +77,11 @@ HELPDESCRIPTION
 			    --message-on-... options in one. Individual messages
 			    can still be overridden via the --message-on-...
 			    parameters.
-    --warn-on-change	    The status message on change will be a warning
-			    message instead of an informational one.
-    --warn-unless-change    The status message on success (without change) will
-			    be a warning message instead of an informational
-			    one.
+    --warn-on-change	    Modifies the status messages synthesized by
+			    --message-subject so that on change it will be a
+			    warning message instead of an informational one.
+    --warn-unless-change    Modifies the status messages synthesized by
+			    --message-subject so that on success (without
     --command-arguments|-n N
 			    The COMMAND [ARGUMENTS ...] consists of N arguments;
 			    start accepting FILEs after that.

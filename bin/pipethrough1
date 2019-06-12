@@ -18,7 +18,7 @@
 
 printShortUsage()
 {
-    printf 'Usage: %q %s\n' $(basename "$1") '[-v|--verbose] [-p|--piped] [-b|--backup EXT] [--test-only|(--diff-only|--diff [--diff-cmd CMD] [--diff-options OPT])] [--error-unless-change|--error-on-change] [--message-on-change MSG] [--message-on-success MSG] [--message-on-failure MSG] [--message-on-error MSG] ([--message-subject SUBJECT] [--warn-on-change|--warn-unless-change]) [-?|-h|--help] ...'
+    printf 'Usage: %q %s\n' $(basename "$1") '[-v|--verbose] [-p|--piped] [-b|--backup EXT] [--test-only|(--diff-only|--diff [--diff-cmd CMD] [--diff-options OPT])] [--error-unless-change|--error-on-change] [--message-on-change MSG] [--message-on-success MSG] [--message-on-failure MSG] [--message-on-error MSG] [--message-subject SUBJECT [--warn-on-change|--warn-unless-change]] [-?|-h|--help] ...'
     printf 'Usage: %q %s\n' $(basename "$1") '[...] -c|--command "COMMANDLINE [{}] ..." [-c ...] FILE'
     printf 'Usage: %q %s\n' $(basename "$1") '[...] SIMPLECOMMAND [ARGUMENTS ...] FILE'
 }
@@ -54,7 +54,9 @@ HELPDESCRIPTION
     --error-on-change	    Exit 1 if COMMAND changed the FILE.
     --message-on-change MSG Print MSG to stderr if COMMAND changed the FILE.
     --message-on-success MSG
-			    Print MSG to stderr if COMMAND succeeds.
+			    Print MSG to stderr if COMMAND succeeds. If
+			    --message-on-change is also given, this will be the
+			    warning that no change happened.
     --message-on-failure MSG
 			    Print MSG to stderr if COMMAND fails.
     --message-on-error MSG  Print MSG to stderr if processing had an error
@@ -66,11 +68,13 @@ HELPDESCRIPTION
 			    --message-on-... options in one. Individual messages
 			    can still be overridden via the --message-on-...
 			    parameters.
-    --warn-on-change	    The status message on change will be a warning
-			    message instead of an informational one.
-    --warn-unless-change    The status message on success (without change) will
-			    be a warning message instead of an informational
-			    one.
+    --warn-on-change	    Modifies the status messages synthesized by
+			    --message-subject so that on change it will be a
+			    warning message instead of an informational one.
+    --warn-unless-change    Modifies the status messages synthesized by
+			    --message-subject so that on success (without
+			    change) it will be a warning message instead of an
+			    informational one.
 EXIT STATUS:
       0 if it succeeds
     123 if the COMMAND exited with status 1-125
