@@ -1,9 +1,9 @@
 #!/bin/bash
 ###############################################################################
 ##
-# FILE: 	pipethrough
+# FILE:		pipethrough
 # PRODUCT:	tools
-# AUTHOR: 	Ingo Karkat <ingo@karkat.de>
+# AUTHOR:	Ingo Karkat <ingo@karkat.de>
 # DATE CREATED:	01-Jan-2004
 #
 ###############################################################################
@@ -19,7 +19,7 @@
 printShortUsage()
 {
     printf 'Usage: %q %s\n' $(basename "$1") '[-v|--verbose] [-p|--piped] [-b|--backup EXT] [--test-only|(--diff-only|--diff [--diff-cmd CMD] [--diff-options OPT])] [--abort-unless-change|--abort-on-change] [--message-on-change MSG] [--message-on-success MSG] [--message-on-failure MSG] [--message-on-abort MSG] [--message-subject SUBJECT [--warn-on-change|--warn-unless-change]] [-?|-h|--help] ...'
-    printf 'Usage: %q %s\n' $(basename "$1") '[...] -c|--command "COMMANDLINE [{}] ..." [-c ...] FILE [, ...]'
+    printf 'Usage: %q %s\n' $(basename "$1") "[...] -c|--command \"COMMANDLINE [${PIPETHROUGH_FILE_MARKER}] ...\" [-c ...] FILE [, ...]"
     printf 'Usage: %q %s\n' $(basename "$1") '[...] -- SIMPLECOMMAND [ARGUMENTS ...] -- FILE [, ...]'
     printf 'Usage: %q %s\n' $(basename "$1") '[...] \; SIMPLECOMMAND [ARGUMENTS ...] \; FILE [, ...]'
     printf 'Usage: %q %s\n' $(basename "$1") '[...] -n|--command-arguments N SIMPLECOMMAND [ARGUMENTS ...] FILE [, ...]'
@@ -35,7 +35,7 @@ printLongUsage()
 {
     cat <<HELPDESCRIPTION
 Passes FILEs individually through external COMMAND(s) (by passing the FILE spec
-as the last command-line argument, or replacing any {} marker inside COMMAND, or
+as the last command-line argument, or replacing any $PIPETHROUGH_FILE_MARKER marker inside COMMAND, or
 alternatively piping the FILE contents in through standard input) and writes the
 output back into the same FILE.
 COMMAND (and its ARGUMENTS) can be specified in various ways: As one quoted
@@ -94,7 +94,7 @@ EXIT STATUS:
 HELPTEXT
 }
 
-
+: ${PIPETHROUGH_FILE_MARKER:='{}'}
 isNeedEval=
 typeset -a commands=()
 action=overwrite
@@ -216,7 +216,8 @@ if [ ${#simpleCommand[@]} -gt 0 ]; then
 	# undo the effects of eval.
 	printf -v quotedSimpleCommand '%q ' "${simpleCommand[@]}"
 	quotedSimpleCommand="${quotedSimpleCommand% }"
-	commands+=(${commands:+$commandJoiner} "${quotedSimpleCommand//\\\{\\\}/\{\}}")	# %q escapes {}, we don't want that to have it interpolated later.
+	printf -v escapedFileMarker %q "$PIPETHROUGH_FILE_MARKER"
+	commands+=(${commands:+$commandJoiner} "${quotedSimpleCommand//"$escapedFileMarker"/$PIPETHROUGH_FILE_MARKER}")	# %q escapes {}, we don't want that to have it interpolated later.
     else
 	commands=("${simpleCommand[@]}")
     fi
@@ -306,7 +307,7 @@ do
     tmpFile=$(mktemp --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || echo "${TEMP:-/tmp}/$(basename -- "$0").$$")
 
     interpolatedFile="$file"; [ "$isNeedEval" ] && printf -v interpolatedFile '%q' "$file"
-    typeset -a interpolatedCommands=("${commands[@]//\{\}/$interpolatedFile}")
+    typeset -a interpolatedCommands=("${commands[@]//"$PIPETHROUGH_FILE_MARKER"/$interpolatedFile}")
     typeset -a f=("$interpolatedFile")
     [ "${interpolatedCommands[*]}" = "${commands[*]}" ] || f=()
 
@@ -325,6 +326,7 @@ do
 	cp --force --preserve "$file" "${file}${backupExtension}" || exit $?
     fi
 
+    savePipethroughFileMarker="$PIPETHROUGH_FILE_MARKER"; unset PIPETHROUGH_FILE_MARKER
     isChange=
     if [ "$isPiped" ]; then
 	# Note: Use $interpolatedCommands instead of $commands here; any {} would
@@ -353,5 +355,6 @@ do
 		*)	message "$messageOnFailure" "$file"; exitStatus=123;;
 	    esac
 	}
+    PIPETHROUGH_FILE_MARKER="$savePipethroughFileMarker"
 done
 exit $exitStatus
