@@ -17,10 +17,12 @@
 ###############################################################################
 
 : ${PIPETHROUGH1_FILE_MARKER:='{}'}
+fileMarker="$PIPETHROUGH1_FILE_MARKER"; unset PIPETHROUGH1_FILE_MARKER
+
 printShortUsage()
 {
     printf 'Usage: %q %s\n' $(basename "$1") '[-v|--verbose] [-p|--piped] [-b|--backup EXT] [--test-only|(--diff-only|--diff [--diff-cmd CMD] [--diff-options OPT])] [--error-unless-change|--error-on-change] [--message-on-change MSG] [--message-on-success MSG] [--message-on-failure MSG] [--message-on-error MSG] [--message-subject SUBJECT [--warn-on-change|--warn-unless-change]] [-?|-h|--help] ...'
-    printf 'Usage: %q %s\n' $(basename "$1") "[...] -c|--command \"COMMANDLINE [${PIPETHROUGH1_FILE_MARKER}] ...\" [-c ...] FILE"
+    printf 'Usage: %q %s\n' $(basename "$1") "[...] -c|--command \"COMMANDLINE [${fileMarker}] ...\" [-c ...] FILE"
     printf 'Usage: %q %s\n' $(basename "$1") '[...] SIMPLECOMMAND [ARGUMENTS ...] FILE'
 }
 printUsage()
@@ -34,7 +36,7 @@ printLongUsage()
 {
     cat <<HELPDESCRIPTION
 Passes FILE through external COMMAND(s) (by passing the FILE spec as the last
-command-line argument, or replacing any $PIPETHROUGH1_FILE_MARKER marker inside COMMAND, or
+command-line argument, or replacing any $fileMarker marker inside COMMAND, or
 alternatively piping the FILE contents in through standard input) and writes the
 output back into the same FILE.
 HELPDESCRIPTION
@@ -184,8 +186,8 @@ if [ ${#simpleCommand[@]} -gt 0 ]; then
 	# undo the effects of eval.
 	printf -v quotedSimpleCommand '%q ' "${simpleCommand[@]}"
 	quotedSimpleCommand="${quotedSimpleCommand% }"
-	printf -v escapedFileMarker %q "$PIPETHROUGH1_FILE_MARKER"
-	commands+=(${commands:+$commandJoiner} "${quotedSimpleCommand//"$escapedFileMarker"/$PIPETHROUGH1_FILE_MARKER}")	# %q escapes {}, we don't want that to have it interpolated later.
+	printf -v escapedFileMarker %q "$fileMarker"
+	commands+=(${commands:+$commandJoiner} "${quotedSimpleCommand//"$escapedFileMarker"/$fileMarker}")	# %q escapes {}, we don't want that to have it interpolated later.
     else
 	commands=("${simpleCommand[@]}")
     fi
@@ -266,7 +268,7 @@ checkError()
 tmpFile=$(mktemp --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || echo "${TEMP:-/tmp}/$(basename -- "$0").$$")
 
 interpolatedFile="$file"; [ "$isNeedEval" ] && printf -v interpolatedFile '%q' "$file"
-typeset -a interpolatedCommands=("${commands[@]//"$PIPETHROUGH1_FILE_MARKER"/$interpolatedFile}")
+typeset -a interpolatedCommands=("${commands[@]//"$fileMarker"/$interpolatedFile}")
 typeset -a f=("$interpolatedFile")
 [ "${interpolatedCommands[*]}" = "${commands[*]}" ] || f=()
 
@@ -285,7 +287,6 @@ if [ "$backupExtension" ]; then
     cp --force --preserve "$file" "${file}${backupExtension}" || exit $?
 fi
 
-unset PIPETHROUGH1_FILE_MARKER
 if [ "$isPiped" ]; then
     # Note: Use $interpolatedCommands instead of $commands here; any {} would
     # be expanded in there, which might only make sense for weird corner
