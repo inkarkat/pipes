@@ -24,7 +24,7 @@ printShortUsage()
     printf 'Usage: %q %s\n' $(basename "$1") '[-v|--verbose] [-p|--piped] [-b|--backup EXT] [--test-only|(--diff-only|--diff [--diff-cmd CMD] [--diff-options OPT])] [--abort-unless-change|--abort-on-change] [--message-on-change MSG] [--message-on-success MSG] [--message-on-failure MSG] [--message-on-abort MSG] [--message-subject SUBJECT [--warn-on-change|--warn-unless-change]] [-?|-h|--help] ...'
     printf 'Usage: %q %s\n' $(basename "$1") "[...] -c|--command \"COMMANDLINE [${fileMarker}] ...\" [-c ...] FILE [, ...]"
     printf 'Usage: %q %s\n' $(basename "$1") '[...] -- SIMPLECOMMAND [ARGUMENTS ...] -- FILE [, ...]'
-    printf 'Usage: %q %s\n' $(basename "$1") '[...] \; SIMPLECOMMAND [ARGUMENTS ...] \; FILE [, ...]'
+    printf 'Usage: %q %s\n' $(basename "$1") '[...] ; SIMPLECOMMAND [ARGUMENTS ...] ; FILE [, ...]'
     printf 'Usage: %q %s\n' $(basename "$1") '[...] -n|--command-arguments N SIMPLECOMMAND [ARGUMENTS ...] FILE [, ...]'
 }
 printUsage()
@@ -42,7 +42,7 @@ as the last command-line argument, or replacing any $fileMarker marker inside CO
 alternatively piping the FILE contents in through standard input) and writes the
 output back into the same FILE.
 COMMAND (and its ARGUMENTS) can be specified in various ways: As one quoted
-argument, separated by special arguments -- or \;, or (especially useful in
+argument, separated by special arguments -- or ;, or (especially useful in
 scripts when you know the \${#ARGS[@]} but cannot influence the contents) by
 number of arguments.
 HELPDESCRIPTION
