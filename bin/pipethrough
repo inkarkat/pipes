@@ -89,11 +89,11 @@ HELPDESCRIPTION
 			    The COMMAND [ARGUMENTS ...] consists of N arguments;
 			    start accepting FILEs after that.
 EXIT STATUS:
-      0 if it succeeds
-    123 if any invocation of the COMMAND exited with status 1-125
-    124 if the COMMAND exited with status 255
-      1 if the processing was aborted (--abort-on-change, --abort-unless-change)
-      2 if it was invoked in a wrong way, e.g. missing FILEs
+    0	if it succeeds
+    123	if any invocation of the COMMAND exited with status 1-125
+    124	if the COMMAND exited with status 255
+    1	if the processing was aborted (--abort-on-change, --abort-unless-change)
+    2	if it was invoked in a wrong way, e.g. missing FILEs
 HELPTEXT
 }
 

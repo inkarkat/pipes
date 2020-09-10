@@ -79,11 +79,11 @@ HELPDESCRIPTION
 			    change) it will be a warning message instead of an
 			    informational one.
 EXIT STATUS:
-      0 if it succeeds
-    123 if the COMMAND exited with status 1-125
-    124 if the COMMAND exited with status 255
-      1 if an error was raised (--error-on-change, --error-unless-change)
-      2 if it was invoked in a wrong way, e.g. missing FILE
+    0	if it succeeds
+    123	if the COMMAND exited with status 1-125
+    124	if the COMMAND exited with status 255
+    1	if an error was raised (--error-on-change, --error-unless-change)
+    2	if it was invoked in a wrong way, e.g. missing FILE
 HELPTEXT
 }
 
