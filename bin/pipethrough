@@ -182,7 +182,12 @@ if [ "$messageSubject" ]; then
 	    fi
 	    : ${messageOnSuccess="Warning: $messageSubject did not change %q"}
 	    ;;
-	*)  : ${messageOnSuccess="Successfully performed $messageSubject on %q"};;
+	*)  if [ "$check" = ':' ]; then
+		: ${messageOnSuccess="Successfully performed $messageSubject on %q"}
+	    else
+		: ${messageOnSuccess="Successfully performed $messageSubject on %q without changing it"}
+	    fi
+	    ;;
     esac
     : ${messageOnFailure="ERROR: Failed to $messageSubject on %q"}
     case "$abortOn" in
