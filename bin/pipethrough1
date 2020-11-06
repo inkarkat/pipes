@@ -30,7 +30,7 @@ printUsage()
     # This is the short help when launched with no or incorrect arguments.
     # It is printed to stderr to avoid accidental processing.
     printShortUsage "$1" >&2
-    printf >&2 'Try %q --help for more information.\n' "$(basename "$1")"
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
 }
 printLongUsage()
 {
@@ -118,19 +118,21 @@ do
 	--diff-cmd)		shift; diffCommand="$1"; shift;;
 	--error-unless-change)	shift
 				if [ "$errorOn" = 1 ]; then
-				    echo >&2 "ERROR: Cannot specify both --error-unless-change and --error-on-change at once!"
-				    printShortUsage "$0"
+				    echo "ERROR: Cannot specify both --error-unless-change and --error-on-change at once!"
+				    echo
+				    printUsage "$0"
 				    exit 2;
-				fi
+				fi >&2
 				check=checkError
 				errorOn=0
 				;;
 	--error-on-change)	shift
 				if [ "$errorOn" = 0 ]; then
-				    echo >&2 "ERROR: Cannot specify both --error-unless-change and --error-on-change at once!"
-				    printShortUsage "$0"
+				    echo "ERROR: Cannot specify both --error-unless-change and --error-on-change at once!"
+				    echo
+				    printUsage "$0"
 				    exit 2;
-				fi
+				fi >&2
 				check=checkError
 				errorOn=1
 				;;
@@ -146,7 +148,7 @@ do
 	--warn-on-change)		shift; warnOn=1;;
 	--warn-unless-change)		shift; warnOn=0;;
 	--)		break;;
-	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printShortUsage "$0"; } >&2; exit 2;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
     esac
 done
