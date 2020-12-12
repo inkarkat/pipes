@@ -85,6 +85,8 @@ HELPDESCRIPTION
 			    warning message instead of an informational one.
     --warn-unless-change    Modifies the status messages synthesized by
 			    --message-subject so that on success (without
+			    change) it will be a warning message instead of an
+			    informational one.
     --command-arguments|-n N
 			    The COMMAND [ARGUMENTS ...] consists of N arguments;
 			    start accepting FILEs after that.
