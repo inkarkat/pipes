@@ -64,7 +64,7 @@ HELPDESCRIPTION
 			    Print MSG to stderr if COMMAND fails.
     --message-on-error MSG  Print MSG to stderr if processing had an error
 			    (--error-on-change, --error-unless-change).
-			    FILE can be embedded in the message via %q.
+    FILE can be embedded in any message via %q.
     --message-subject SUBJECT
 			    Print a status message (change, success, failure,
 			    error) to stderr. Basically all of the

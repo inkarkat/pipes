@@ -72,8 +72,7 @@ HELPDESCRIPTION
 			    Print MSG to stderr if COMMAND fails.
     --message-on-abort MSG  Print MSG to stderr if processing was aborted
 			    (--abort-on-change, --abort-unless-change).
-			    The current FILE can be embedded in the message via
-			    %q.
+    The current FILE can be embedded in any message via %q.
     --message-subject SUBJECT
 			    Print a status message (change, success, failure,
 			    abort) to stderr. Basically all of the
