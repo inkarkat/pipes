@@ -91,6 +91,7 @@ action=overwrite
 check=:
 errorOn=
 backupExtension=
+backupCommand=
 commandArgumentNum=
 diffCommand=diff; type -t colordiff >/dev/null && diffCommand=colordiff # Highlight diff output if available.
 diffOptions=-u
@@ -110,7 +111,7 @@ do
 	--command|-c)	shift; commands+=(${commands:+$commandJoiner} "$1"); isNeedEval=t; shift;;
 	--verbose|-v)	shift; isVerbose=t;;
 	--piped|-p)	shift; isPiped=t; commandJoiner='|';;
-	--backup|-b)	shift; backupExtension="$1"; shift;;
+	--backup|-b)	shift; backupExtension="$1"; shift; backupCommand=backupToExtension;;
 	--test-only)	shift; action=testChanges;;
 	--diff-only)	shift; action=diffChanges;;
 	--diff)		shift; action=diffAndOverwrite;;
@@ -231,6 +232,11 @@ diffAndOverwrite()
     diffChanges "$1" "$2"
     overwrite "$1" "$2"
 }
+backupToExtension()
+{
+    local filespec="${1:?}"; shift
+    cp --force --preserve "$filespec" "${filespec}${backupExtension}"
+}
 
 # The $check is done in a subprocess, so we need to send a signal to the main
 # script in order to pass the information about whether a change has been done.
@@ -290,8 +296,8 @@ if [ "$isVerbose" ]; then
     printf >&2 "%s\n" "${verboseCommand% }"
 fi
 
-if [ "$backupExtension" ]; then
-    cp --force --preserve "$file" "${file}${backupExtension}" || exit $?
+if [ -n "$backupCommand" ]; then
+    $backupCommand "$file" || exit $?
 fi
 
 if [ "$isPiped" ]; then
