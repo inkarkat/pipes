@@ -21,7 +21,7 @@ fileMarker="$PIPETHROUGH1_FILE_MARKER"; unset PIPETHROUGH1_FILE_MARKER
 
 printShortUsage()
 {
-    printf 'Usage: %q %s\n' $(basename "$1") '[-v|--verbose] [-p|--piped] [-b|--backup EXT] [--test-only|(--diff-only|--diff [--diff-cmd CMD] [--diff-options OPT])] [--error-unless-change|--error-on-change] [--message-on-change MSG] [--message-on-success MSG] [--message-on-failure MSG] [--message-on-error MSG] [--message-subject SUBJECT [--warn-on-change|--warn-unless-change]] [-?|-h|--help] ...'
+    printf 'Usage: %q %s\n' $(basename "$1") '[-v|--verbose] [-p|--piped] [-b|--backup EXT|--backup-command writeorig|writebackup|writeOrigOrBackup] [--test-only|(--diff-only|--diff [--diff-cmd CMD] [--diff-options OPT])] [--error-unless-change|--error-on-change] [--message-on-change MSG] [--message-on-success MSG] [--message-on-failure MSG] [--message-on-error MSG] [--message-subject SUBJECT [--warn-on-change|--warn-unless-change]] [-?|-h|--help] ...'
     printf 'Usage: %q %s\n' $(basename "$1") "[...] -c|--command \"COMMANDLINE [${fileMarker}] ...\" [-c ...] FILE"
     printf 'Usage: %q %s\n' $(basename "$1") '[...] SIMPLECOMMAND [ARGUMENTS ...] FILE'
 }
@@ -46,8 +46,10 @@ HELPDESCRIPTION
     --verbose|-v	    Show each executed command on stderr.
     --piped|-p		    Pass FILE contents via stdin into COMMAND instead of
 			    by appending FILE as the last command-line argument.
-    --backup|-b		    Create a backup of the original file with file
+    --backup|-b EXT	    Create a backup of the original file with file
 			    extension EXT.
+    --backup-command writeorig|writebackup|writeOrigOrBackup
+			    Use the supplied backup program for backup.
     --test-only		    Just test for change, don't persist.
     --diff-only		    Only show differences done by COMMAND, don't persist.
     --diff		    Also show differences done by COMMAND, and overwrite.
@@ -91,6 +93,7 @@ action=overwrite
 check=:
 errorOn=
 backupExtension=
+backupCommand=
 commandArgumentNum=
 diffCommand=diff; type -t colordiff >/dev/null && diffCommand=colordiff # Highlight diff output if available.
 diffOptions=-u
@@ -110,7 +113,9 @@ do
 	--command|-c)	shift; commands+=(${commands:+$commandJoiner} "$1"); isNeedEval=t; shift;;
 	--verbose|-v)	shift; isVerbose=t;;
 	--piped|-p)	shift; isPiped=t; commandJoiner='|';;
-	--backup|-b)	shift; backupExtension="$1"; shift;;
+	--backup|-b)	shift; backupExtension="$1"; shift; backupCommand=backupToExtension;;
+	--backup-command)
+			shift; backupCommand="$1"; shift;;
 	--test-only)	shift; action=testChanges;;
 	--diff-only)	shift; action=diffChanges;;
 	--diff)		shift; action=diffAndOverwrite;;
@@ -231,6 +236,11 @@ diffAndOverwrite()
     diffChanges "$1" "$2"
     overwrite "$1" "$2"
 }
+backupToExtension()
+{
+    local filespec="${1:?}"; shift
+    cp --force --preserve "$filespec" "${filespec}${backupExtension}"
+}
 
 # The $check is done in a subprocess, so we need to send a signal to the main
 # script in order to pass the information about whether a change has been done.
@@ -290,8 +300,8 @@ if [ "$isVerbose" ]; then
     printf >&2 "%s\n" "${verboseCommand% }"
 fi
 
-if [ "$backupExtension" ]; then
-    cp --force --preserve "$file" "${file}${backupExtension}" || exit $?
+if [ -n "$backupCommand" ]; then
+    $backupCommand "$file" || exit $?
 fi
 
 if [ "$isPiped" ]; then
