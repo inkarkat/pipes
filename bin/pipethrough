@@ -2,7 +2,7 @@
 ###############################################################################
 ##
 # FILE:		pipethrough
-# PRODUCT:	tools
+# PRODUCT:	pipes
 # AUTHOR:	Ingo Karkat <ingo@karkat.de>
 # DATE CREATED:	01-Jan-2004
 #
@@ -13,7 +13,7 @@
 #
 # REMARKS:
 #
-# @(#)pipethrough	$Id$	tools
+# @(#)pipethrough	$Id$	pipes
 ###############################################################################
 
 : ${PIPETHROUGH_FILE_MARKER='{}'}
