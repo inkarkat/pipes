@@ -220,7 +220,11 @@ message()
 
 overwrite()
 {
-    cp --force -- "$1" "$2" && rm --force -- "$1"
+    if [ -h "$2" -a ! -e "$2" ]; then
+	cat -- "$1" > "$2"	# Shell redirection re-creates a dangling symlink instead of failing like cp.
+    else
+	cp --force -- "$1" "$2"	# Preserve original file mode by using cp && rm instead of mv: "In the absence of --preserve, the permissions of existing destination files are unchanged."
+    fi && rm --force -- "$1"
 }
 testChanges()
 {
