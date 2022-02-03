@@ -234,6 +234,10 @@ case "$1" in
 	    simpleCommand+=("$1")
 	    shift
 	done
+	if [ $# -eq 0 ]; then
+	    echo 'ERROR: -- SIMPLECOMMAND [ARGUMENTS ...] must be concluded with --!'; echo; printUsage "$0"
+	    exit 2
+	fi >&2
 	shift
 	;;
     *)
