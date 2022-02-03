@@ -23,9 +23,9 @@ printShortUsage()
 {
     printf 'Usage: %q %s\n' $(basename "$1") '[-v|--verbose] [-p|--piped] [-b|--backup EXT|--backup-command writeorig|writebackup|writeOrigOrBackup] [--test-only|(--diff-only|--diff [--diff-cmd CMD] [--diff-options OPT])] [--abort-unless-change|--abort-on-change] [--message-on-change MSG] [--message-on-success MSG] [--message-on-failure MSG] [--message-on-abort MSG] [--message-subject SUBJECT [--warn-on-change|--warn-unless-change]] [-?|-h|--help] ...'
     printf 'Usage: %q %s\n' $(basename "$1") "[...] -c|--command \"COMMANDLINE [${fileMarker}] ...\" [-c ...] FILE [, ...]"
-    printf 'Usage: %q %s\n' $(basename "$1") '[...] -- SIMPLECOMMAND [ARGUMENTS ...] -- FILE [, ...]'
-    printf 'Usage: %q %s\n' $(basename "$1") '[...] ; SIMPLECOMMAND [ARGUMENTS ...] ; FILE [, ...]'
-    printf 'Usage: %q %s\n' $(basename "$1") '[...] -n|--command-arguments N SIMPLECOMMAND [ARGUMENTS ...] FILE [, ...]'
+    printf 'Usage: %q %s\n' $(basename "$1") "[...] --exec SIMPLECOMMAND [${fileMarker}] [ARGUMENTS ...] ; FILE [, ...]"
+    printf 'Usage: %q %s\n' $(basename "$1") "[...] -- SIMPLECOMMAND [${fileMarker}] [ARGUMENTS ...] -- FILE [, ...]"
+    printf 'Usage: %q %s\n' $(basename "$1") "[...] -n|--command-arguments N SIMPLECOMMAND [${fileMarker}] [ARGUMENTS ...] FILE [, ...]"
 }
 printUsage()
 {
@@ -42,12 +42,13 @@ as the last command-line argument${fileMarker:+, or replacing any $fileMarker ma
 alternatively piping the FILE contents in through standard input) and writes the
 output back into the same FILE.
 COMMAND (and its ARGUMENTS) can be specified in various ways: As one quoted
-argument, separated by special arguments -- or ;, or (especially useful in
-scripts when you know the \${#ARGS[@]} but cannot influence the contents) by
-number of arguments.
+argument with -c|--command, arguments after --exec until a ';', separated by
+special arguments --, or (especially useful in scripts when you know the
+\${#ARGS[@]} but cannot influence the contents) by number of arguments.
 HELPDESCRIPTION
     echo
     printShortUsage "$1"
+    echo
     cat <<HELPTEXT
     --verbose|-v	    Show each executed command on stderr.
     --piped|-p		    Pass FILE contents via stdin into COMMAND instead of
@@ -88,6 +89,14 @@ HELPDESCRIPTION
 			    --message-subject so that on success (without
 			    change) it will be a warning message instead of an
 			    informational one.
+    --command|-c CMD	    Execute CMD as a command-line. Each FILE ${fileMarker:+either }is
+			    appended${fileMarker:+ or replaces any $fileMarker marker} inside
+			    COMMANDLINE.
+    --exec COMMAND ... ;    Execute COMMAND; all following arguments are taken
+			    to be arguments to the COMMAND until an argument
+			    consisting of ';' is encountered. Each FILE ${fileMarker:+either}
+			    is appended${fileMarker:+ or replaces any $fileMarker marker} inside
+			    COMMANDLINE.
     --command-arguments|-n N
 			    The COMMAND [ARGUMENTS ...] consists of N arguments;
 			    start accepting FILEs after that.
@@ -125,6 +134,18 @@ do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--command|-c)	shift; commands+=(${commands:+$commandJoiner} "$1"); isNeedEval=t; shift;;
+	--exec)		shift
+			while [ $# -gt 0 -a "$1" != ';' ]
+			do
+			    simpleCommand+=("$1")
+			    shift
+			done
+			if [ $# -eq 0 ]; then
+			    echo 'ERROR: -exec command must be concluded with ;!'; echo; printUsage "$0"
+			    exit 2
+			fi >&2
+			shift
+			;;
 	--verbose|-v)	shift; isVerbose=t;;
 	--piped|-p)	shift; isPiped=t; commandJoiner='|';;
 	--backup|-b)	shift; backupExtension="$1"; shift; backupCommand=backupToExtension;;
@@ -206,10 +227,9 @@ if [ "$messageSubject" ]; then
 fi
 
 case "$1" in
-    \;|--)
-	separator=$1
+    --)
 	shift
-	while [ "$1" != "$separator" ]
+	while [ $# -gt 0 -a "$1" != '--' ]
 	do
 	    simpleCommand+=("$1")
 	    shift
