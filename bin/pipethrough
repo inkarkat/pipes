@@ -58,8 +58,10 @@ HELPDESCRIPTION
     --backup-command writeorig|writebackup|writeOrigOrBackup
 			    Use the supplied backup program for backup.
     --test-only		    Just test for change, don't persist.
-    --diff-only		    Only show differences done by COMMAND, don't persist.
-    --diff		    Also show differences done by COMMAND, and overwrite.
+    --diff-only		    Only show differences done by COMMAND, don't
+			    persist.
+    --diff		    Also show differences done by COMMAND, and
+			    overwrite.
     --diff-cmd CMD	    Use CMD as the diff command.
     --diff-options OPT	    Options passed to diff; default -u (unified diff).
     --abort-unless-change   Do not process further FILEs if COMMAND didn't
