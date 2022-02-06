@@ -10,5 +10,5 @@ load fixture
     [[ "${lines[-4]}" =~ ^"+++ $FILE1" ]]
     [ "${lines[-3]}" = "@@ -1 +1 @@" ]
     [ "${lines[-2]}" = "-FOO" ]
-    [ "${lines[-1]}" = "+Fii" ]
+    [ "${lines[-1]}" = "+Fi" ]
 }

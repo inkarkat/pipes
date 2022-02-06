@@ -13,7 +13,7 @@ load fixture
     [ $status -eq 0 ]
     [ "${lines[-3]}" = "@@ -1 +1 @@" ]
     [ "${lines[-2]}" = "-FOO" ]
-    [ "${lines[-1]}" = "+Fii" ]
+    [ "${lines[-1]}" = "+Fi" ]
 }
 
 @test "show diff when both files are changed" {
@@ -21,7 +21,7 @@ load fixture
     [ $status -eq 0 ]
     [ "${lines[-8]}" = "@@ -1 +1 @@" ]
     [ "${lines[-7]}" = "-FOO" ]
-    [ "${lines[-6]}" = "+Fii" ]
+    [ "${lines[-6]}" = "+Fi" ]
     [ "${lines[-3]}" = "@@ -1 +1 @@" ]
     [ "${lines[-2]}" = "-fox" ]
     [ "${lines[-1]}" = "+fix" ]
@@ -32,7 +32,7 @@ load fixture
     [ $status -eq 0 ]
     [ "${lines[-5]}" = "@@ -1 +1 @@" ]
     [ "${lines[-4]}" = "-FOO" ]
-    [ "${lines[-3]}" = "+Fii" ]
+    [ "${lines[-3]}" = "+Fi" ]
     [ "${lines[-2]}" = "SUBJECT changed $FILE1" ]
     [ "${lines[-1]}" = "Successfully performed SUBJECT on $FILE2 without changing it" ]
 }
