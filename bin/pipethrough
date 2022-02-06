@@ -108,6 +108,7 @@ EXIT STATUS:
     124	if the COMMAND exited with status 255
     1	if the processing was aborted (--abort-on-change, --abort-unless-change)
     2	if it was invoked in a wrong way, e.g. missing FILEs
+    3	Internal error or failed assertion.
 HELPTEXT
 }
 
@@ -319,7 +320,7 @@ checkChanges()
 {
     cmp --silent "$1" "$2"
     case $? in
-	2) exit 1;;	# cmp had trouble
+	2) exit 3;;	# cmp had trouble
 	1) if [ "$messageOnChange" ]; then kill -SIGUSR1 "$mainPID"; fi;;
     esac
 }
@@ -329,7 +330,7 @@ checkAbort()
 
     cmp --silent "$1" "$2"
     case $? in
-	2) exit 1;;	# cmp had trouble
+	2) exit 3;;	# cmp had trouble
 	1) if [ "$messageOnChange" ]; then kill -SIGUSR1 "$mainPID"; fi;;& # Fall-through here!
 	$abortOn)
 	    $action "$1" "$2" || {
@@ -401,6 +402,7 @@ do
 	if [ "$isChange" ]; then message "$messageOnChange" "$file"; else message "$messageOnSuccess" "$file"; fi || \
 	{
 	    case $? in
+		3)	exit 3;;
 		255)    message "$messageOnFailure" "$file"; exit 124;;
 		*)	message "$messageOnFailure" "$file"; exitStatus=123;;
 	    esac
