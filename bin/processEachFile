@@ -293,7 +293,7 @@ message()
 getDigest()
 {
     local filespec="${1:?}"; shift
-    local digestOutput digest; digestOutput="$("$delta" "$filespec")" || return $?
+    local digestOutput digest; digestOutput="$("$delta" "$filespec")" || return 3
     read -r digest <<<"$digestOutput"
     if [ -z "$digest" ]; then
 	printf >&2 'ERROR: Empty digest from %s.\n' "$delta"
