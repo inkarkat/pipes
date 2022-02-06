@@ -304,7 +304,10 @@ getDigest()
 
 diffChanges()
 {
-    eval "$diffCommand" "$diffOptions" '"$2" "$1"'
+    local copyFilespec="${1?}"; shift
+    local copyDigest="${1?}"; shift
+    local file="${1:?}"; shift
+    eval "$diffCommand" "$diffOptions" '"$copyFilespec" "$file"'
     return 0	# Do not interpret differences as failure; we have the separate --abort-on-change and --abort-unless-change for that.
 }
 backupToExtension()
