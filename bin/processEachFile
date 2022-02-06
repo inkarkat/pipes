@@ -21,7 +21,7 @@ fileMarker="$PIPETHROUGH_FILE_MARKER"; unset PIPETHROUGH_FILE_MARKER
 
 printShortUsage()
 {
-    printf 'Usage: %q %s\n' $(basename "$1") '[-v|--verbose] [-p|--piped] [-b|--backup EXT|--backup-command writeorig|writebackup|writeOrigOrBackup] [--diff [--diff-cmd CMD] [--diff-options OPT]] [--abort-unless-change|--abort-on-change] [--message-on-change MSG] [--message-on-success MSG] [--message-on-failure MSG] [--message-on-abort MSG] [--message-subject SUBJECT [--warn-on-change|--warn-unless-change]] [-?|-h|--help] ...'
+    printf 'Usage: %q %s\n' $(basename "$1") '[-v|--verbose] [--delta-via backup|copy|fileAge|fileSize|cksum|sha256sum] [-b|--backup EXT|--backup-command writeorig|writebackup|writeOrigOrBackup] [--diff [--diff-cmd CMD] [--diff-options OPT]] [--abort-unless-change|--abort-on-change] [--message-on-change MSG] [--message-on-success MSG] [--message-on-failure MSG] [--message-on-abort MSG] [--message-subject SUBJECT [--warn-on-change|--warn-unless-change]] [-?|-h|--help] ...'
     printf 'Usage: %q %s\n' $(basename "$1") "[...] -c|--command \"COMMANDLINE [${fileMarker}] ...\" [-c ...] FILE [, ...]"
     printf 'Usage: %q %s\n' $(basename "$1") "[...] --exec SIMPLECOMMAND [${fileMarker}] [ARGUMENTS ...] ; FILE [, ...]"
     printf 'Usage: %q %s\n' $(basename "$1") "[...] -- SIMPLECOMMAND [${fileMarker}] [ARGUMENTS ...] -- FILE [, ...]"
@@ -51,7 +51,7 @@ HELPDESCRIPTION
     echo
     cat <<HELPTEXT
     --verbose|-v	    Show each executed command on stderr.
-    --delta-via|-d backup|copy|fileAge|fileSize|cksum|sha256sum
+    --delta-via backup|copy|fileAge|fileSize|cksum|sha256sum
 			    Determine whether the file has changed through the
 			    passed algorithm. This can be any command that takes
 			    the FILE as its argument and prints a single-word
@@ -159,7 +159,7 @@ do
 	--backup|-b)	shift; backupExtension="$1"; shift; backupCommand=backupToExtension; delta=backup;;
 	--backup-command)
 			shift; backupCommand="$1"; shift; delta=backup;;
-	--delta)	shift; delta="${1:?}"; shift;;
+	--delta-via)	shift; delta="${1:?}"; shift;;
 	--diff)		shift; action=diffChanges;;
 	--diff-options)		shift; diffOptions="$1"; shift;;
 	--diff-cmd)		shift; diffCommand="$1"; shift;;
