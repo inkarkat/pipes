@@ -410,8 +410,13 @@ do
 	    ;;
 	backup)
 	    if [ -z "$backupFilespec" ]; then
-		printf >&2 'ERROR: Did not get a backup filespec from %s.\n' "$backupCommand"
-		exit 3
+		if [ -n "$backupCommand" ]; then
+		    printf >&2 'ERROR: Did not get a backup filespec from %s.\n' "$backupCommand"
+		    exit 3
+		else
+		    printf >&2 'ERROR: Cannot use --delta-via backup without enabling backups.\n'
+		    exit 2
+		fi
 	    elif [ ! -e "$backupFilespec" ]; then
 		printf >&2 'ERROR: Backup does not exist: %s\n' "$backupFilespec"
 		exit 3
