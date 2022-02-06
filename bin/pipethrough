@@ -151,7 +151,7 @@ do
 			;;
 	--verbose|-v)	shift; isVerbose=t;;
 	--piped|-p)	shift; isPiped=t; commandJoiner='|';;
-	--backup|-b)	shift; backupExtension="$1"; shift; backupCommand=backupToExtension;;
+	--backup|-b)	shift; backupExtension="${1:?}"; shift; backupCommand=backupToExtension;;
 	--backup-command)
 			shift; backupCommand="$1"; shift;;
 	--test-only)	shift; action=testChanges;;
@@ -304,7 +304,7 @@ diffAndOverwrite()
 backupToExtension()
 {
     local filespec="${1:?}"; shift
-    cp --force --preserve "$filespec" "${filespec}${backupExtension}"
+    cp --force --preserve "$filespec" "${filespec}${backupExtension:?}"
 }
 
 # The $check is done in a subprocess, so we need to send a signal to the main
