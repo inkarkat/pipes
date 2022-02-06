@@ -264,7 +264,10 @@ onChangeReported()
 trap onChangeReported SIGUSR1
 checkChanges()
 {
-    cmp --silent "$1" "$2"
+    local updatedFilespec="${1:?}"; shift
+    local file="${1:?}"; shift
+
+    cmp --silent "$updatedFilespec" "$file"
     case $? in
 	2) exit 3;;	# cmp had trouble
 	1) if [ "$messageOnChange" ]; then kill -SIGUSR1 "$mainPID"; fi;;
@@ -272,14 +275,16 @@ checkChanges()
 }
 checkError()
 {
+    local updatedFilespec="${1:?}"; shift
+    local file="${1:?}"; shift
     [ "$errorOn" ] || return 0
 
-    cmp --silent "$1" "$2"
+    cmp --silent "$updatedFilespec" "$file"
     case $? in
 	2) exit 3;;	# cmp had trouble
 	1) if [ "$messageOnChange" ]; then kill -SIGUSR1 "$mainPID"; fi;;& # Fall-through here!
 	$errorOn)
-	    $action "$1" "$2" || {
+	    $action "$updatedFilespec" "$file" || {
 		case $? in
 		    255)    message "$messageOnFailure" "$file"; exit 124;;	# special COMMAND exit has precedence over abort
 		esac
