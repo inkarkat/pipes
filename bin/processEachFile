@@ -128,7 +128,7 @@ backupFilespec=
 copyFilespec=
 copyDigest=
 commandArgumentNum=
-diffCommand=diff; type -t colordiff >/dev/null && diffCommand=colordiff # Highlight diff output if available.
+diffCommand=diff; [ -t 1 ] && type -t colordiff >/dev/null && diffCommand=colordiff # Highlight diff output if available.
 diffOptions=-u
 commandJoiner=';'
 isVerbose=
