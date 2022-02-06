@@ -357,7 +357,7 @@ checkAbort()
 	2) exit 3;;	# cmp had trouble
 	1) if [ -n "$messageOnChange" ]; then kill -SIGUSR1 "$mainPID"; fi;;& # Fall-through here!
 	$abortOn)
-	    $action "$1" "$2" || {
+	    $action "$copyFilespec" "$copyDigest" "$file" || {
 		case $? in
 		    255)    message "$messageOnFailure" "$file"; exit 124;;	# special COMMAND exit has precedence over abort
 		esac
