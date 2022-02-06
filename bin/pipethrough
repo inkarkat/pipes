@@ -380,7 +380,7 @@ do
     fi
 
     if [ -n "$backupCommand" ]; then
-	$backupCommand "$file" || exit $?
+	$backupCommand "$file" || exit 3
     fi
 
     isChange=

@@ -401,7 +401,7 @@ do
     fi
 
     if [ -n "$backupCommand" ]; then
-	backupFilespec="$($backupCommand "$file")" || exit $?
+	backupFilespec="$($backupCommand "$file")" || exit 3
     fi
     case "$delta" in
 	'') ;;

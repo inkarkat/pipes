@@ -316,7 +316,7 @@ if [ "$isVerbose" ]; then
 fi
 
 if [ -n "$backupCommand" ]; then
-    $backupCommand "$file" || exit $?
+    $backupCommand "$file" || exit 3
 fi
 
 if [ "$isPiped" ]; then
