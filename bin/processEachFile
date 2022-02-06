@@ -156,7 +156,7 @@ do
 			shift
 			;;
 	--verbose|-v)	shift; isVerbose=t;;
-	--backup|-b)	shift; backupExtension="$1"; shift; backupCommand=backupToExtension; delta=backup;;
+	--backup|-b)	shift; backupExtension="${1:?}"; shift; backupCommand=backupToExtension; delta=backup;;
 	--backup-command)
 			shift; backupCommand="$1"; shift; delta=backup;;
 	--delta-via)	shift; delta="${1:?}"; shift;;
@@ -313,7 +313,7 @@ diffChanges()
 backupToExtension()
 {
     local filespec="${1:?}"; shift
-    cp --force --preserve "$filespec" "${filespec}${backupExtension}" && \
+    cp --force --preserve "$filespec" "${filespec}${backupExtension:?}" && \
 	printf '%s\n' "${filespec}${backupExtension}"
 }
 
