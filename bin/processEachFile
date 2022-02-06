@@ -150,7 +150,7 @@ do
 			    shift
 			done
 			if [ $# -eq 0 ]; then
-			    echo 'ERROR: -exec command must be concluded with ;!'; echo; printUsage "$0"
+			    echo 'ERROR: --exec command must be concluded with ;!'; echo; printUsage "$0"
 			    exit 2
 			fi >&2
 			shift
@@ -214,9 +214,11 @@ if [ -n "$messageSubject" ]; then
     fi
     case "$warnOn" in
 	0)  if [ "$check" = ':' ]; then
-		echo >&2 "ERROR: --warn-unless-change cannot be specified when change checking isn't enabled"
+		echo "ERROR: --warn-unless-change cannot be specified when change checking isn't enabled"
+		echo
+		printUsage "$0"
 		exit 2
-	    fi
+	    fi >&2
 	    : ${messageOnSuccess="Warning: $messageSubject did not change %q"}
 	    ;;
 	*)  if [ "$check" = ':' ]; then
@@ -277,9 +279,11 @@ if [ ${#simpleCommand[@]} -gt 0 ]; then
     fi
 fi
 if [ ${#commands[@]} -eq 0 ]; then
-    echo >&2 'ERROR: No COMMAND(s) specified; need to pass -c|--command "COMMANDLINE", or SIMPLECOMMAND.'
+    echo 'ERROR: No COMMAND(s) specified; need to pass -c|--command "COMMANDLINE", or SIMPLECOMMAND.'
+    echo
+    printUsage "$0"
     exit 2
-fi
+fi >&2
 
 
 
@@ -381,10 +385,11 @@ checkAbort()
 
 ####D echo "**** $isNeedEval ${commands[0]}"; echo "**** ${commands[1]}"; echo "**** ${commands[2]}"; exit
 if [ $# -eq 0 ]; then
-    echo >&2 "ERROR: No FILEs to process."
+    echo 'ERROR: No FILE(s) to process.'
+    echo
     printUsage "$0"
     exit 2
-fi
+fi >&2
 
 exitStatus=0
 for file
@@ -401,7 +406,7 @@ do
     fi
 
     if [ -n "$backupCommand" ]; then
-	backupFilespec="$($backupCommand "$file")" || exit $?
+	backupFilespec="$($backupCommand "$file")" || exit 3
     fi
     case "$delta" in
 	'') ;;
