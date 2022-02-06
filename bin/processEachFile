@@ -232,7 +232,13 @@ if [ -n "$messageSubject" ]; then
 	1)  : ${messageOnAbort="ERROR: Aborted because $messageSubject changed %q"};;
     esac
 fi
-[ "$action" = ':' -a "$check" = ':' ] && delta=''
+if [ "$action" = ':' -a "$check" = ':' ]; then
+    delta=''	# No need for change detection.
+elif [ "$delta" = copy ]; then
+    # Reuse a single temp file for each change detection.
+    copyFilespec="$(mktemp --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || echo "${TEMP:-/tmp}/$(basename -- "$0").$$$RANDOM")"
+    [ "${DEBUG:-}" ] || trap 'rm --force "$copyFilespec" 2>/dev/null' EXIT
+fi
 
 case "$1" in
     --)
@@ -397,9 +403,7 @@ do
     case "$delta" in
 	'') ;;
 	copy)
-	    copyFilespec="$(mktemp --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || echo "${TEMP:-/tmp}/$(basename -- "$0").$$$RANDOM")"
-	    cp --dereference -- "$file" "$copyFilespec" || exit $?
-	    [ "${DEBUG:-}" ] || trap 'rm --force "$copyFilespec" 2>/dev/null' EXIT
+	    cp --force --dereference -- "$file" "${copyFilespec:?}" || exit $?
 	    ;;
 	backup)
 	    if [ -z "$backupFilespec" ]; then
