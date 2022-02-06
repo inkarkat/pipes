@@ -37,7 +37,7 @@ printUsage()
 printLongUsage()
 {
     cat <<HELPDESCRIPTION
-Passes FILEs individually to COMMAND(s) (by passing the FILE spec as the last
+Passes FILEs individually to COMMAND(s) (by passing FILE as the last
 command-line argument${fileMarker:+, or replacing any $fileMarker marker inside COMMAND}),
 assuming it writes the output back into the same FILE (i.e. performs an in-place
 update).

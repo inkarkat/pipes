@@ -35,7 +35,7 @@ printUsage()
 printLongUsage()
 {
     cat <<HELPDESCRIPTION
-Passes FILE through external COMMAND(s) (by passing the FILE spec as the last
+Passes FILE through external COMMAND(s) (by passing FILE as the last
 command-line argument${fileMarker:+, or replacing any $fileMarker marker inside COMMAND}, or
 alternatively piping the FILE contents in through standard input) and writes the
 output back into the same FILE.
