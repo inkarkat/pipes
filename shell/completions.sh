@@ -1,3 +1,3 @@
 #!/bin/sh source-this-script
 
-completeAsCommand pipethrough pipethrough1
+completeAsCommand pipethrough pipethrough1 processEachFile
