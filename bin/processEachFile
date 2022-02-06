@@ -105,6 +105,12 @@ HELPDESCRIPTION
     --command-arguments|-n N
 			    The COMMAND [ARGUMENTS ...] consists of N arguments;
 			    start accepting FILEs after that.
+
+SEE ALSO:
+- eachFile also executes COMMAND on each FILE individually, but isn't concerned
+  with what happens to the FILE. Instead, it offers header and prompt
+  embellishments, and can summarize the amount of failures.
+
 EXIT STATUS:
     0	if it succeeds
     123	if any invocation of the COMMAND exited with status 1-125
