@@ -16,17 +16,17 @@ setup()
 
 assertFile1Unchanged()
 {
-    [ "$(< "$FILE1")" = 'FOO' ]
+    [ "$(< "${1:-$FILE1}")" = 'FOO' ]
 }
 assertFile2Unchanged()
 {
-    [ "$(< "$FILE2")" = 'fox' ]
+    [ "$(< "${1:-$FILE2}")" = 'fox' ]
 }
 assertFile1Changed()
 {
-    [ "$(< "$FILE1")" = 'Fii' ]
+    [ "$(< "${1:-$FILE1}")" = 'Fii' ]
 }
 assertFile2Changed()
 {
-    [ "$(< "$FILE2")" = 'fix' ]
+    [ "$(< "${1:-$FILE2}")" = 'fix' ]
 }
