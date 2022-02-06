@@ -111,21 +111,25 @@ EXIT STATUS:
     124	if the COMMAND exited with status 255
     1	if the processing was aborted (--abort-on-change, --abort-unless-change)
     2	if it was invoked in a wrong way, e.g. missing FILEs
+    3	Internal error or failed assertion.
 HELPTEXT
 }
 
 isNeedEval=
 typeset -a commands=()
 typeset -a simpleCommand=()
-action=overwrite
+action=:
 check=:
+delta=copy
 abortOn=
 backupExtension=
 backupCommand=
+backupFilespec=
+copyFilespec=
+copyDigest=
 commandArgumentNum=
 diffCommand=diff; type -t colordiff >/dev/null && diffCommand=colordiff # Highlight diff output if available.
 diffOptions=-u
-isPiped=
 commandJoiner=';'
 isVerbose=
 warnOn=
@@ -152,13 +156,11 @@ do
 			shift
 			;;
 	--verbose|-v)	shift; isVerbose=t;;
-	--piped|-p)	shift; isPiped=t; commandJoiner='|';;
-	--backup|-b)	shift; backupExtension="$1"; shift; backupCommand=backupToExtension;;
+	--backup|-b)	shift; backupExtension="$1"; shift; backupCommand=backupToExtension; delta=backup;;
 	--backup-command)
-			shift; backupCommand="$1"; shift;;
-	--test-only)	shift; action=testChanges;;
-	--diff-only)	shift; action=diffChanges;;
-	--diff)		shift; action=diffAndOverwrite;;
+			shift; backupCommand="$1"; shift; delta=backup;;
+	--delta)	shift; delta="${1:?}"; shift;;
+	--diff)		shift; action=diffChanges;;
 	--diff-options)		shift; diffOptions="$1"; shift;;
 	--diff-cmd)		shift; diffCommand="$1"; shift;;
 	--abort-unless-change)	shift
@@ -230,6 +232,7 @@ if [ "$messageSubject" ]; then
 	1)  : ${messageOnAbort="ERROR: Aborted because $messageSubject changed %q"};;
     esac
 fi
+[ "$action" = ':' -a "$check" = ':' ] && delta=''
 
 case "$1" in
     --)
@@ -281,32 +284,28 @@ message()
     fi
 }
 
-overwrite()
+getDigest()
 {
-    if [ -h "$2" -a ! -e "$2" ]; then
-	cat -- "$1" > "$2"	# Shell redirection re-creates a dangling symlink instead of failing like cp.
-    else
-	cp --force -- "$1" "$2"	# Preserve original file mode by using cp && rm instead of mv: "In the absence of --preserve, the permissions of existing destination files are unchanged."
-    fi && rm --force -- "$1"
+    local filespec="${1:?}"; shift
+    local digestOutput digest; digestOutput="$("$delta" "$filespec")" || return $?
+    read -r digest <<<"$digestOutput"
+    if [ -z "$digest" ]; then
+	printf >&2 'ERROR: Empty digest from %s.\n' "$delta"
+	return 3
+    fi
+    printf '%s\n' "$digest"
 }
-testChanges()
-{
-    return 0
-}
+
 diffChanges()
 {
     eval "$diffCommand" "$diffOptions" '"$2" "$1"'
     return 0	# Do not interpret differences as failure; we have the separate --abort-on-change and --abort-unless-change for that.
 }
-diffAndOverwrite()
-{
-    diffChanges "$1" "$2"
-    overwrite "$1" "$2"
-}
 backupToExtension()
 {
     local filespec="${1:?}"; shift
-    cp --force --preserve "$filespec" "${filespec}${backupExtension}"
+    cp --force --preserve "$filespec" "${filespec}${backupExtension}" && \
+	printf '%s\n' "${filespec}${backupExtension}"
 }
 
 # The $check is done in a subprocess, so we need to send a signal to the main
@@ -320,20 +319,43 @@ onChangeReported()
 trap onChangeReported SIGUSR1
 checkChanges()
 {
-    cmp --silent "$1" "$2"
+    local copyFilespec="${1?}"; shift
+    local copyDigest="${1?}"; shift
+    local file="${1:?}"; shift
+
+    case "$delta" in
+	'') echo >&2 'ASSERT: $delta must not be empty when checking.'; exit 3;;
+	copy|backup)
+	    cmp --silent "$copyFilespec" "$file";;
+	*)
+	    local updatedDigest; updatedDigest="$(getDigest "$file")" || exit $?
+	    [ "$updatedDigest" = "$copyDigest" ]
+	    ;;
+    esac
     case $? in
-	2) exit 1;;	# cmp had trouble
-	1) if [ "$messageOnChange" ]; then kill -SIGUSR1 "$mainPID"; fi;;
+	2) exit 3;;	# cmp had trouble
+	1) if [ -n "$messageOnChange" ]; then kill -SIGUSR1 "$mainPID"; fi;;
     esac
 }
 checkAbort()
 {
+    local copyFilespec="${1?}"; shift
+    local copyDigest="${1?}"; shift
+    local file="${1:?}"; shift
     [ "$abortOn" ] || return 0
 
-    cmp --silent "$1" "$2"
+    case "$delta" in
+	'') echo >&2 'ASSERT: $delta must not be empty when checking.'; exit 3;;
+	copy|backup)
+	    cmp --silent "$copyFilespec" "$file";;
+	*)
+	    local updatedDigest; updatedDigest="$(getDigest "$file")" || exit $?
+	    [ "$updatedDigest" = "$copyDigest" ]
+	    ;;
+    esac
     case $? in
-	2) exit 1;;	# cmp had trouble
-	1) if [ "$messageOnChange" ]; then kill -SIGUSR1 "$mainPID"; fi;;& # Fall-through here!
+	2) exit 3;;	# cmp had trouble
+	1) if [ -n "$messageOnChange" ]; then kill -SIGUSR1 "$mainPID"; fi;;& # Fall-through here!
 	$abortOn)
 	    $action "$1" "$2" || {
 		case $? in
@@ -358,8 +380,6 @@ fi
 exitStatus=0
 for file
 do
-    tmpFile=$(mktemp --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || echo "${TEMP:-/tmp}/$(basename -- "$0").$$")
-
     interpolatedFile="$file"; [ "$isNeedEval" ] && printf -v interpolatedFile '%q' "$file"
     typeset -a interpolatedCommands=("${commands[@]//"$fileMarker"/$interpolatedFile}")
     typeset -a f=("$interpolatedFile")
@@ -367,43 +387,47 @@ do
 
     if [ "$isVerbose" ]; then
 	quoter='%q'; [ "$isNeedEval" ] && quoter='%s'
-	if [ "$isPiped" ]; then
-	    [ ${#f[@]} -eq 0 -a -n "$isPiped" ] && f=("$interpolatedFile")
-	    printf "< $quoter " "${f[@]}"
-	    f=()
-	fi
 	printf -v verboseCommand "$quoter " "${interpolatedCommands[@]}" "${f[@]}"
 	printf >&2 "%s\n" "${verboseCommand% }"
     fi
 
     if [ -n "$backupCommand" ]; then
-	$backupCommand "$file" || exit $?
+	backupFilespec="$($backupCommand "$file")" || exit $?
     fi
+    case "$delta" in
+	'') ;;
+	copy)
+	    copyFilespec="$(mktemp --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || echo "${TEMP:-/tmp}/$(basename -- "$0").$$$RANDOM")"
+	    cp --dereference -- "$file" "$copyFilespec" || exit $?
+	    [ "${DEBUG:-}" ] || trap 'rm --force "$copyFilespec" 2>/dev/null' EXIT
+	    ;;
+	backup)
+	    if [ -z "$backupFilespec" ]; then
+		printf >&2 'ERROR: Did not get a backup filespec from %s.\n' "$backupCommand"
+		exit 3
+	    elif [ ! -e "$backupFilespec" ]; then
+		printf >&2 'ERROR: Backup does not exist: %s\n' "$backupFilespec"
+		exit 3
+	    fi >&2
+	    copyFilespec="$backupFilespec"
+	    ;;
+	*)
+	    copyDigest="$(getDigest "$file")" || exit $?
+	    ;;
+    esac
 
     isChange=
-    if [ "$isPiped" ]; then
-	# Note: Use $interpolatedCommands instead of $commands here; any {} would
-	# be expanded in there, which might only make sense for weird corner
-	# cases, so why not. Another argument is that we simply always log
-	# $interpolatedCommands with --verbose, so the action should be
-	# consistent with that.
-	if [ "$isNeedEval" ]; then
-	    < "$file" eval "${interpolatedCommands[@]}" > "$tmpFile"
-	else
-	    < "$file" "${interpolatedCommands[@]}" > "$tmpFile"
-	fi
+    if [ "$isNeedEval" ]; then
+	eval "${interpolatedCommands[@]}" "${f[@]}"
     else
-	if [ "$isNeedEval" ]; then
-	    eval "${interpolatedCommands[@]}" "${f[@]}" > "$tmpFile"
-	else
-	    "${interpolatedCommands[@]}" "${f[@]}" > "$tmpFile"
-	fi
+	"${interpolatedCommands[@]}" "${f[@]}"
     fi && \
-	$check "$tmpFile" "$file" && \
-	$action "$tmpFile" "$file" && \
+	$check "$copyFilespec" "$copyDigest" "$file" && \
+	$action "$copyFilespec" "$copyDigest" "$file" && \
 	if [ "$isChange" ]; then message "$messageOnChange" "$file"; else message "$messageOnSuccess" "$file"; fi || \
 	{
 	    case $? in
+		3)	exit 3;;
 		255)    message "$messageOnFailure" "$file"; exit 124;;
 		*)	message "$messageOnFailure" "$file"; exitStatus=123;;
 	    esac
