@@ -180,7 +180,7 @@ do
 				abortOn=1
 				;;
 	--message-on-change)	shift
-				[ "$1" -a "$check" = ':' ] && check=checkChanges
+				[ -n "$1" -a "$check" = ':' ] && check=checkChanges
 				messageOnChange="$1"
 				shift
 				;;
@@ -200,7 +200,7 @@ if [ $# -eq 0 ]; then
     printUsage "$0" >&2
     exit 2
 fi
-if [ "$messageSubject" ]; then
+if [ -n "$messageSubject" ]; then
     if [ ! "${messageOnChange+t}" ]; then
 	case "$warnOn" in
 	    1)	messageOnChange="Warning: $messageSubject changed %q";;
@@ -244,7 +244,7 @@ case "$1" in
 	shift
 	;;
     *)
-	if [ "$commandArgumentNum" ]; then
+	if [ -n "$commandArgumentNum" ]; then
 	    for (( i = 0; i < commandArgumentNum; i++ ))
 	    do
 		simpleCommand+=("$1")
@@ -274,7 +274,7 @@ fi
 
 message()
 {
-    if [ "$1" ]; then
+    if [ -n "$1" ]; then
 	printf "$1\\n" "$2"
     fi
 }
@@ -324,19 +324,19 @@ checkChanges()
     cmp --silent "$updatedFilespec" "$file"
     case $? in
 	2) exit 3;;	# cmp had trouble
-	1) if [ "$messageOnChange" ]; then kill -SIGUSR1 "$mainPID"; fi;;
+	1) if [ -n "$messageOnChange" ]; then kill -SIGUSR1 "$mainPID"; fi;;
     esac
 }
 checkAbort()
 {
     local updatedFilespec="${1:?}"; shift
     local file="${1:?}"; shift
-    [ "$abortOn" ] || return 0
+    [ -n "$abortOn" ] || return 0
 
     cmp --silent "$updatedFilespec" "$file"
     case $? in
 	2) exit 3;;	# cmp had trouble
-	1) if [ "$messageOnChange" ]; then kill -SIGUSR1 "$mainPID"; fi;;& # Fall-through here!
+	1) if [ -n "$messageOnChange" ]; then kill -SIGUSR1 "$mainPID"; fi;;& # Fall-through here!
 	$abortOn)
 	    $action "$updatedFilespec" "$file" || {
 		case $? in
