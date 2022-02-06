@@ -108,6 +108,7 @@ EXIT STATUS:
     124	if the COMMAND exited with status 255
     1	if the processing was aborted (--abort-on-change, --abort-unless-change)
     2	if it was invoked in a wrong way, e.g. missing FILEs
+    3	Internal error or failed assertion.
 HELPTEXT
 }
 
@@ -120,7 +121,7 @@ abortOn=
 backupExtension=
 backupCommand=
 commandArgumentNum=
-diffCommand=diff; type -t colordiff >/dev/null && diffCommand=colordiff # Highlight diff output if available.
+diffCommand=diff; [ -t 1 ] && type -t colordiff >/dev/null && diffCommand=colordiff # Highlight diff output if available.
 diffOptions=-u
 isPiped=
 commandJoiner=';'
@@ -150,7 +151,7 @@ do
 			;;
 	--verbose|-v)	shift; isVerbose=t;;
 	--piped|-p)	shift; isPiped=t; commandJoiner='|';;
-	--backup|-b)	shift; backupExtension="$1"; shift; backupCommand=backupToExtension;;
+	--backup|-b)	shift; backupExtension="${1:?}"; shift; backupCommand=backupToExtension;;
 	--backup-command)
 			shift; backupCommand="$1"; shift;;
 	--test-only)	shift; action=testChanges;;
@@ -179,7 +180,7 @@ do
 				abortOn=1
 				;;
 	--message-on-change)	shift
-				[ "$1" -a "$check" = ':' ] && check=checkChanges
+				[ -n "$1" -a "$check" = ':' ] && check=checkChanges
 				messageOnChange="$1"
 				shift
 				;;
@@ -199,7 +200,7 @@ if [ $# -eq 0 ]; then
     printUsage "$0" >&2
     exit 2
 fi
-if [ "$messageSubject" ]; then
+if [ -n "$messageSubject" ]; then
     if [ ! "${messageOnChange+t}" ]; then
 	case "$warnOn" in
 	    1)	messageOnChange="Warning: $messageSubject changed %q";;
@@ -243,7 +244,7 @@ case "$1" in
 	shift
 	;;
     *)
-	if [ "$commandArgumentNum" ]; then
+	if [ -n "$commandArgumentNum" ]; then
 	    for (( i = 0; i < commandArgumentNum; i++ ))
 	    do
 		simpleCommand+=("$1")
@@ -273,7 +274,7 @@ fi
 
 message()
 {
-    if [ "$1" ]; then
+    if [ -n "$1" ]; then
 	printf "$1\\n" "$2"
     fi
 }
@@ -303,7 +304,7 @@ diffAndOverwrite()
 backupToExtension()
 {
     local filespec="${1:?}"; shift
-    cp --force --preserve "$filespec" "${filespec}${backupExtension}"
+    cp --force --preserve "$filespec" "${filespec}${backupExtension:?}"
 }
 
 # The $check is done in a subprocess, so we need to send a signal to the main
@@ -317,22 +318,27 @@ onChangeReported()
 trap onChangeReported SIGUSR1
 checkChanges()
 {
-    cmp --silent "$1" "$2"
+    local updatedFilespec="${1:?}"; shift
+    local file="${1:?}"; shift
+
+    cmp --silent "$updatedFilespec" "$file"
     case $? in
-	2) exit 1;;	# cmp had trouble
-	1) if [ "$messageOnChange" ]; then kill -SIGUSR1 "$mainPID"; fi;;
+	2) exit 3;;	# cmp had trouble
+	1) if [ -n "$messageOnChange" ]; then kill -SIGUSR1 "$mainPID"; fi;;
     esac
 }
 checkAbort()
 {
-    [ "$abortOn" ] || return 0
+    local updatedFilespec="${1:?}"; shift
+    local file="${1:?}"; shift
+    [ -n "$abortOn" ] || return 0
 
-    cmp --silent "$1" "$2"
+    cmp --silent "$updatedFilespec" "$file"
     case $? in
-	2) exit 1;;	# cmp had trouble
-	1) if [ "$messageOnChange" ]; then kill -SIGUSR1 "$mainPID"; fi;;& # Fall-through here!
+	2) exit 3;;	# cmp had trouble
+	1) if [ -n "$messageOnChange" ]; then kill -SIGUSR1 "$mainPID"; fi;;& # Fall-through here!
 	$abortOn)
-	    $action "$1" "$2" || {
+	    $action "$updatedFilespec" "$file" || {
 		case $? in
 		    255)    message "$messageOnFailure" "$file"; exit 124;;	# special COMMAND exit has precedence over abort
 		esac
@@ -401,6 +407,7 @@ do
 	if [ "$isChange" ]; then message "$messageOnChange" "$file"; else message "$messageOnSuccess" "$file"; fi || \
 	{
 	    case $? in
+		3)	exit 3;;
 		255)    message "$messageOnFailure" "$file"; exit 124;;
 		*)	message "$messageOnFailure" "$file"; exitStatus=123;;
 	    esac
