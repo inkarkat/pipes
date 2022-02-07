@@ -33,14 +33,6 @@ assert_modifications()
     assert_modifications
 }
 
-@test "-- simple without ending --" {
-    run processEachFile --verbose -- "${commandArgs[@]}" "$foo" "$bar"
-
-    [ $status -eq 2 ]
-    [ "${lines[0]}" = "ERROR: -- SIMPLECOMMAND [ARGUMENTS ...] must be concluded with --!" ]
-    [ "${lines[2]%% *}" = "Usage:" ]
-}
-
 @test "-- simple --, two files appended" {
     run processEachFile --verbose -- "${commandArgs[@]}" -- "$foo" "$bar"
 
@@ -55,14 +47,6 @@ assert_modifications()
     [ "${lines[0]}" = "$commandEscaped $foo" ]
     [ "${lines[1]}" = "$commandEscaped $barEscaped" ]
     assert_modifications
-}
-
-@test "--exec simple without ending ;" {
-    run processEachFile --verbose --exec "${commandArgs[@]}" "$foo" "$bar"
-
-    [ $status -eq 2 ]
-    [ "${lines[0]}" = "ERROR: -exec command must be concluded with ;!" ]
-    [ "${lines[2]%% *}" = "Usage:" ]
 }
 
 @test "--exec simple ;, two files appended" {
