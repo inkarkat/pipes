@@ -26,7 +26,7 @@ assert_modifications()
 }
 
 @test "--command, two files via {}" {
-    run processEachFile --verbose --command "$commandSingleQuoted" "$foo" "$bar"
+    run processEachFile --verbose --command "$commandSingleQuoted {}" "$foo" "$bar"
 
     [ "${lines[0]}" = "$commandSingleQuoted $foo" ]
     [ "${lines[1]}" = "$commandSingleQuoted $barEscaped" ]

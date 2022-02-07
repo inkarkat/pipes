@@ -23,7 +23,7 @@ assert_modifications()
 }
 
 @test "--command, file via {}" {
-    run pipethrough1 --verbose --command "$commandSingleQuoted" "$bar"
+    run pipethrough1 --verbose --command "$commandSingleQuoted {}" "$bar"
 
     [ "${lines[0]}" = "$commandSingleQuoted $barEscaped" ]
     assert_modifications

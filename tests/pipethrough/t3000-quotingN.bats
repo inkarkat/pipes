@@ -26,7 +26,7 @@ assert_modifications()
 }
 
 @test "--command, two files via {}" {
-    run pipethrough --verbose --command "$commandSingleQuoted" "$foo" "$bar"
+    run pipethrough --verbose --command "$commandSingleQuoted {}" "$foo" "$bar"
 
     [ "${lines[0]}" = "$commandSingleQuoted $foo" ]
     [ "${lines[1]}" = "$commandSingleQuoted $barEscaped" ]
@@ -61,7 +61,7 @@ assert_modifications()
     run pipethrough --verbose --exec "${commandArgs[@]}" "$foo" "$bar"
 
     [ $status -eq 2 ]
-    [ "${lines[0]}" = "ERROR: -exec command must be concluded with ;!" ]
+    [ "${lines[0]}" = "ERROR: --exec command must be concluded with ;!" ]
     [ "${lines[2]%% *}" = "Usage:" ]
 }
 
