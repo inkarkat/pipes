@@ -345,9 +345,11 @@ checkChanges()
     case "$delta" in
 	'') echo >&2 'ASSERT: $delta must not be empty when checking.'; exit 3;;
 	copy|backup)
+	    [ -e "$file" ] || file=/dev/null	# So that cmp has something to compare to.
 	    cmp --silent "$copyFilespec" "$file";;
 	*)
-	    local updatedDigest; updatedDigest="$(getDigest "$file")" || exit $?
+	    local updatedDigest
+	    [ ! -e "$file" ] || updatedDigest="$(getDigest "$file")" || exit $?
 	    [ "$updatedDigest" = "$copyDigest" ]
 	    ;;
     esac
@@ -366,9 +368,11 @@ checkAbort()
     case "$delta" in
 	'') echo >&2 'ASSERT: $delta must not be empty when checking.'; exit 3;;
 	copy|backup)
+	    [ -e "$file" ] || file=/dev/null	# So that cmp has something to compare to.
 	    cmp --silent "$copyFilespec" "$file";;
 	*)
-	    local updatedDigest; updatedDigest="$(getDigest "$file")" || exit $?
+	    local updatedDigest
+	    [ ! -e "$file" ] || updatedDigest="$(getDigest "$file")" || exit $?
 	    [ "$updatedDigest" = "$copyDigest" ]
 	    ;;
     esac
@@ -411,33 +415,38 @@ do
 	printf >&2 "%s\n" "${verboseCommand% }"
     fi
 
-    if [ -n "$backupCommand" ]; then
-	backupFilespec="$($backupCommand "$file")" || exit 3
-    fi
-    case "$delta" in
-	'') ;;
-	copy)
-	    cp --force --dereference -- "$file" "${copyFilespec:?}" || exit $?
-	    ;;
-	backup)
-	    if [ -z "$backupFilespec" ]; then
-		if [ -n "$backupCommand" ]; then
-		    printf >&2 'ERROR: Did not get a backup filespec from %s.\n' "$backupCommand"
+    if [ -e "$file" ]; then
+	if [ -n "$backupCommand" ]; then
+	    backupFilespec="$($backupCommand "$file")" || exit 3
+	fi
+	case "$delta" in
+	    '') ;;
+	    copy)
+		cp --force --dereference -- "$file" "${copyFilespec:?}" || exit $?
+		;;
+	    backup)
+		if [ -z "$backupFilespec" ]; then
+		    if [ -n "$backupCommand" ]; then
+			printf >&2 'ERROR: Did not get a backup filespec from %s.\n' "$backupCommand"
+			exit 3
+		    else
+			printf >&2 'ERROR: Cannot use --delta-via backup without enabling backups.\n'
+			exit 2
+		    fi
+		elif [ ! -e "$backupFilespec" ]; then
+		    printf >&2 'ERROR: Backup does not exist: %s\n' "$backupFilespec"
 		    exit 3
-		else
-		    printf >&2 'ERROR: Cannot use --delta-via backup without enabling backups.\n'
-		    exit 2
-		fi
-	    elif [ ! -e "$backupFilespec" ]; then
-		printf >&2 'ERROR: Backup does not exist: %s\n' "$backupFilespec"
-		exit 3
-	    fi >&2
-	    copyFilespec="$backupFilespec"
-	    ;;
-	*)
-	    copyDigest="$(getDigest "$file")" || exit $?
-	    ;;
-    esac
+		fi >&2
+		copyFilespec="$backupFilespec"
+		;;
+	    *)
+		copyDigest="$(getDigest "$file")" || exit $?
+		;;
+	esac
+    else
+	copyFilespec=/dev/null
+	copyDigest=''
+    fi
 
     isChange=
     if [ "$isNeedEval" ]; then
