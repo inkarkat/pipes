@@ -270,6 +270,7 @@ checkChanges()
     local updatedFilespec="${1:?}"; shift
     local file="${1:?}"; shift
 
+    [ -e "$file" ] || file=/dev/null	# So that cmp has something to compare to.
     cmp --silent "$updatedFilespec" "$file"
     case $? in
 	2) exit 3;;	# cmp had trouble
@@ -282,6 +283,7 @@ checkError()
     local file="${1:?}"; shift
     [ -n "$errorOn" ] || return 0
 
+    [ -e "$file" ] || file=/dev/null	# So that cmp has something to compare to.
     cmp --silent "$updatedFilespec" "$file"
     case $? in
 	2) exit 3;;	# cmp had trouble
@@ -319,7 +321,7 @@ if [ "$isVerbose" ]; then
     printf >&2 "%s\n" "${verboseCommand% }"
 fi
 
-if [ -n "$backupCommand" ]; then
+if [ -n "$backupCommand" ] && [ -e "$file" ]; then
     $backupCommand "$file" || exit 3
 fi
 
@@ -329,10 +331,12 @@ if [ "$isPiped" ]; then
     # cases, so why not. Another argument is that we simply always log
     # $interpolatedCommands with --verbose, so the action should be
     # consistent with that.
+    inputFile="$file"
+    [ -e "$inputFile" ] || inputFile=/dev/null	# So that the input redirection won't fail and the commands have something (eh nothing) to read.
     if [ "$isNeedEval" ]; then
-	< "$file" eval "${interpolatedCommands[@]}" > "$tmpFile"
+	< "$inputFile" eval "${interpolatedCommands[@]}" > "$tmpFile"
     else
-	< "$file" "${interpolatedCommands[@]}" > "$tmpFile"
+	< "$inputFile" "${interpolatedCommands[@]}" > "$tmpFile"
     fi
 else
     if [ "$isNeedEval" ]; then
