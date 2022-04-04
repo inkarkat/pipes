@@ -23,9 +23,9 @@ printShortUsage()
 {
     printf 'Usage: %q %s\n' $(basename "$1") '[-v|--verbose] [-p|--piped] [-b|--backup EXT|--backup-command writeorig|writebackup|writeOrigOrBackup] [--test-only|(--diff-only|--diff [--diff-cmd CMD] [--diff-options OPT])] [--abort-unless-change|--abort-on-change] [--message-on-change MSG] [--message-on-success MSG] [--message-on-failure MSG] [--message-on-abort MSG] [--message-subject SUBJECT [--warn-on-change|--warn-unless-change]] [-?|-h|--help] ...'
     printf 'Usage: %q %s\n' $(basename "$1") "[...] -c|--command \"COMMANDLINE [...] [${fileMarker}] [...]\" [-c ...] FILE [...]"
-    printf 'Usage: %q %s\n' $(basename "$1") "[...] --exec SIMPLECOMMAND [ARGUMENTS ...] [${fileMarker}] [ARGUMENTS ...] ; FILE [...]"
-    printf 'Usage: %q %s\n' $(basename "$1") "[...] -- SIMPLECOMMAND [ARGUMENTS ...] [${fileMarker}] [ARGUMENTS ...] -- FILE [...]"
-    printf 'Usage: %q %s\n' $(basename "$1") "[...] -n|--command-arguments N SIMPLECOMMAND [ARGUMENTS ...] [${fileMarker}] [ARGUMENTS ...] FILE [...]"
+    printf 'Usage: %q %s\n' $(basename "$1") "[...] --exec SIMPLECOMMAND [ARGUMENT ...] [${fileMarker}] [ARGUMENT ...] ; FILE [...]"
+    printf 'Usage: %q %s\n' $(basename "$1") "[...] -- SIMPLECOMMAND [ARGUMENT ...] [${fileMarker}] [ARGUMENT ...] -- FILE [...]"
+    printf 'Usage: %q %s\n' $(basename "$1") "[...] -n|--command-arguments N SIMPLECOMMAND [ARGUMENT ...] [${fileMarker}] [ARGUMENT ...] FILE [...]"
 }
 printUsage()
 {
@@ -41,7 +41,7 @@ Passes FILEs individually through external COMMAND(s) (by passing FILE
 as the last command-line argument${fileMarker:+, or replacing any $fileMarker marker inside COMMAND}, or
 alternatively piping the FILE contents in through standard input) and writes the
 output back into the same FILE.
-COMMAND (and its ARGUMENTS) can be specified in various ways: As one quoted
+COMMAND (and its ARGUMENT(s)) can be specified in various ways: As one quoted
 argument with -c|--command, arguments after --exec until a ';', separated by
 special arguments --, or (especially useful in scripts when you know the
 \${#ARGS[@]} but cannot influence the contents) by number of arguments.
@@ -100,7 +100,7 @@ HELPDESCRIPTION
 			    is appended${fileMarker:+ or replaces any $fileMarker marker} inside
 			    COMMANDLINE.
     --command-arguments|-n N
-			    The COMMAND [ARGUMENTS ...] consists of N arguments;
+			    The COMMAND [ARGUMENT ...] consists of N arguments;
 			    start accepting FILEs after that.
 EXIT STATUS:
     0	if it succeeds
@@ -240,7 +240,7 @@ case "$1" in
 	    shift
 	done
 	if [ $# -eq 0 ]; then
-	    echo 'ERROR: -- SIMPLECOMMAND [ARGUMENTS ...] must be concluded with --'; echo; printUsage "$0"
+	    echo 'ERROR: -- SIMPLECOMMAND [ARGUMENT ...] must be concluded with --'; echo; printUsage "$0"
 	    exit 2
 	fi >&2
 	shift
