@@ -21,9 +21,9 @@ fileMarker="$PIPETHROUGH1_FILE_MARKER"; unset PIPETHROUGH1_FILE_MARKER
 
 printShortUsage()
 {
-    printf 'Usage: %q %s\n' $(basename "$1") '[-v|--verbose] [-p|--piped] [-b|--backup EXT|--backup-command writeorig|writebackup|writeOrigOrBackup] [--test-only|(--diff-only|--diff [--diff-cmd CMD] [--diff-options OPT])] [--error-unless-change|--error-on-change] [--message-on-change MSG] [--message-on-success MSG] [--message-on-failure MSG] [--message-on-error MSG] [--message-subject SUBJECT [--warn-on-change|--warn-unless-change]] [-?|-h|--help] ...'
-    printf 'Usage: %q %s\n' $(basename "$1") "[...] -c|--command \"COMMANDLINE [...] [${fileMarker}] [...]\" [-c ...] FILE"
-    printf 'Usage: %q %s\n' $(basename "$1") '[...] SIMPLECOMMAND [ARGUMENT ...] [${fileMarker}] [ARGUMENT ...] FILE'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-v|--verbose] [-p|--piped] [-b|--backup EXT|--backup-command writeorig|writebackup|writeOrigOrBackup] [--test-only|(--diff-only|--diff [--diff-cmd CMD] [--diff-options OPT])] [--error-unless-change|--error-on-change] [--message-on-change MSG] [--message-on-success MSG] [--message-on-failure MSG] [--message-on-error MSG] [--message-subject SUBJECT [--warn-on-change|--warn-unless-change]] [-?|-h|--help] ...'
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[...] -c|--command \"COMMANDLINE [...] [${fileMarker}] [...]\" [-c ...] FILE"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[...] SIMPLECOMMAND [ARGUMENT ...] [${fileMarker}] [ARGUMENT ...] FILE"
 }
 printUsage()
 {
