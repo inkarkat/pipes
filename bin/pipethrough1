@@ -129,7 +129,7 @@ do
 	--diff-cmd)		shift; diffCommand="$1"; shift;;
 	--error-unless-change)	shift
 				if [ "$errorOn" = 1 ]; then
-				    echo "ERROR: Cannot specify both --error-unless-change and --error-on-change at once!"
+				    echo "ERROR: Cannot specify both --error-unless-change and --error-on-change at once."
 				    echo
 				    printUsage "$0"
 				    exit 2;
@@ -139,7 +139,7 @@ do
 				;;
 	--error-on-change)	shift
 				if [ "$errorOn" = 0 ]; then
-				    echo "ERROR: Cannot specify both --error-unless-change and --error-on-change at once!"
+				    echo "ERROR: Cannot specify both --error-unless-change and --error-on-change at once."
 				    echo
 				    printUsage "$0"
 				    exit 2;

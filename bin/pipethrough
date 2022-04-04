@@ -144,7 +144,7 @@ do
 			    shift
 			done
 			if [ $# -eq 0 ]; then
-			    echo 'ERROR: --exec command must be concluded with ;!'; echo; printUsage "$0"
+			    echo 'ERROR: --exec command must be concluded with ;'; echo; printUsage "$0"
 			    exit 2
 			fi >&2
 			shift
@@ -161,7 +161,7 @@ do
 	--diff-cmd)		shift; diffCommand="$1"; shift;;
 	--abort-unless-change)	shift
 				if [ "$abortOn" = 1 ]; then
-				    echo "ERROR: Cannot specify both --abort-unless-change and --abort-on-change at once!"
+				    echo "ERROR: Cannot specify both --abort-unless-change and --abort-on-change at once."
 				    echo
 				    printUsage "$0"
 				    exit 2;
@@ -171,7 +171,7 @@ do
 				;;
 	--abort-on-change)	shift
 				if [ "$abortOn" = 0 ]; then
-				    echo "ERROR: Cannot specify both --abort-unless-change and --abort-on-change at once!"
+				    echo "ERROR: Cannot specify both --abort-unless-change and --abort-on-change at once."
 				    echo
 				    printUsage "$0"
 				    exit 2;
@@ -240,7 +240,7 @@ case "$1" in
 	    shift
 	done
 	if [ $# -eq 0 ]; then
-	    echo 'ERROR: -- SIMPLECOMMAND [ARGUMENTS ...] must be concluded with --!'; echo; printUsage "$0"
+	    echo 'ERROR: -- SIMPLECOMMAND [ARGUMENTS ...] must be concluded with --'; echo; printUsage "$0"
 	    exit 2
 	fi >&2
 	shift
