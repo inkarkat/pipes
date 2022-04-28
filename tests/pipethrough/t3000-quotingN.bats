@@ -37,7 +37,7 @@ assert_modifications()
     run pipethrough --verbose -- "${commandArgs[@]}" "$foo" "$bar"
 
     [ $status -eq 2 ]
-    [ "${lines[0]}" = "ERROR: -- SIMPLECOMMAND [ARGUMENTS ...] must be concluded with --!" ]
+    [ "${lines[0]}" = "ERROR: -- SIMPLECOMMAND [ARGUMENT ...] must be concluded with --" ]
     [ "${lines[2]%% *}" = "Usage:" ]
 }
 
@@ -61,7 +61,7 @@ assert_modifications()
     run pipethrough --verbose --exec "${commandArgs[@]}" "$foo" "$bar"
 
     [ $status -eq 2 ]
-    [ "${lines[0]}" = "ERROR: --exec command must be concluded with ;!" ]
+    [ "${lines[0]}" = "ERROR: --exec command must be concluded with ;" ]
     [ "${lines[2]%% *}" = "Usage:" ]
 }
 
