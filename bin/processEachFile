@@ -310,8 +310,8 @@ message()
 getDigest()
 {
     local filespec="${1:?}"; shift
-    local digestOutput digest; digestOutput="$("$delta" "$filespec")" || return 3
-    read -r digest <<<"$digestOutput"
+    local digestOutput digest rest; digestOutput="$("$delta" "$filespec")" || return 3
+    read -r digest rest <<<"$digestOutput"
     if [ -z "$digest" ]; then
 	printf >&2 'ERROR: Empty digest from %s.\n' "$delta"
 	return 3
