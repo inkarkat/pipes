@@ -143,18 +143,24 @@ fi
 
 evaluate()
 {
-    eval "${1:?}"
+    local commandCnt="${1:?}"; shift
+    local interpolatedCommand="${1:?}"; shift
+    eval "$interpolatedCommand" '"$@"'
 }
 
 printHeader()
 {
-    local isFirst=; [ $2 -eq 1 ] && isFirst=t
+    local commandCnt="${1:?}"; shift
+    local isFirst=; [ $commandCnt -eq 1 ] && isFirst=t
     HEADER_SINK='&2' header ${isFirst:+--first} "$(pipelineCommandName "${1:?}")"
 }
 
 withPrompt()
 {
-    printf '%s\n' "${1:?}" | RUNWITHPROMPT_SINK='&2' runWithPrompt --no-trailing-prompt --comment "$2"
+    local commandCnt="${1:?}"; shift
+    local interpolatedCommand="${1:?}"; shift
+    { printf '%s' "$interpolatedCommand"; printf ' %q' "$@"; printf '\n'; } \
+	| RUNWITHPROMPT_SINK='&2' runWithPrompt --no-trailing-prompt --comment "$commandCnt"
 }
 
 
@@ -178,14 +184,14 @@ do
     [ "$interpolatedCommand" = "$pipelineCommand" ] || f=()
 
     reportProgress "$interpolatedCommand"
-    $preExecutor "$interpolatedCommand \"\${f[@]}\"" "$((${#commands[@]} - $#))"
+    $preExecutor "$((${#commands[@]} - $#))" "$interpolatedCommand" "${f[@]}"
     files=()
     exitStatus=
     while IFS=$'\n' read -r filespec || { exitStatus="$filespec"; break; }	# Exit status from the process substitution (<($executor)) is lost; return the actual exit status via an incomplete (i.e. missing the newline) last line.
     do
 	files+=("$filespec")
 	printf '%s\n' "$filespec"
-    done < <($executor "$interpolatedCommand \"\${f[@]}\"" "$((${#commands[@]} - $#))"; printf %d "$?")
+    done < <($executor "$((${#commands[@]} - $#))" "$interpolatedCommand" "${f[@]}"; printf %d "$?")
     [ $exitStatus -eq 0 ] || exit $exitStatus
 
     if [ ! "$isRunIfEmpty" ] && [ ${#files[@]} -eq 0 -o -z "${files[*]}" ]; then
