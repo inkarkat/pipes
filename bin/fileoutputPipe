@@ -73,6 +73,7 @@ HELPTEXT
 }
 
 typeset -a commands=()
+preExecutor=:
 executor=evaluate
 progressSink=
 isStartWithEmpty=
@@ -108,7 +109,7 @@ do
 	--run-if-empty|-r)
 			shift; isRunIfEmpty=t;;
 	--progress)	shift; progressSink="$1"; shift;;
-	--with-header)	shift; executor=withHeader;;
+	--with-header)	shift; preExecutor=printHeader; executor=evaluate;;
 	--with-prompt)	shift; executor=withPrompt;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
@@ -145,12 +146,10 @@ evaluate()
     eval "${1:?}"
 }
 
-withHeader()
+printHeader()
 {
     local isFirst=; [ $2 -eq 1 ] && isFirst=t
     HEADER_SINK='&2' header ${isFirst:+--first} "$(pipelineCommandName "${1:?}")"
-
-    evaluate "${1:?}"
 }
 
 withPrompt()
@@ -179,6 +178,7 @@ do
     [ "$interpolatedCommand" = "$pipelineCommand" ] || f=()
 
     reportProgress "$interpolatedCommand"
+    $preExecutor "$interpolatedCommand \"\${f[@]}\"" "$((${#commands[@]} - $#))"
     files=()
     exitStatus=
     while IFS=$'\n' read -r filespec || { exitStatus="$filespec"; break; }	# Exit status from the process substitution (<($executor)) is lost; return the actual exit status via an incomplete (i.e. missing the newline) last line.
