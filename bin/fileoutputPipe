@@ -11,7 +11,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s%s %s\n' "$(basename "$1")" '[-r|--run-if-empty]' "${hasProgressNotification:+ [--progress SINK]}" "[--with-header|--with-prompt] -c|--command \"COMMANDLINE [...] [${fileMarker}] [...]\" [...] | --exec SIMPLECOMMAND [...] [${fileMarker}] [...] ; [...] [-E|--start-with-empty]|[--] FILE [...] [-?|-h|--help]"
+    printf 'Usage: %q %s%s %s\n' "$(basename "$1")" '[-r|--run-if-empty]' "${hasProgressNotification:+ [--progress SINK]}" "[--with-header|--with-prompt] [-q|--quiet|-O|--output-results] -c|--command \"COMMANDLINE [...] [${fileMarker}] [...]\" [...] | --exec SIMPLECOMMAND [...] [${fileMarker}] [...] ; [...] [-E|--start-with-empty]|[--] FILE [...] [-?|-h|--help]"
 }
 printUsage()
 {
@@ -26,7 +26,7 @@ printLongUsage()
     # It is printed to stdout to allow paging with 'more'.
     cat <<HELPDESCRIPTION
 Build a sequentially invoked quasi-pipeline out of COMMANDs that process passed files (${fileMarker:+either }appended to${fileMarker:+ or replacing any $fileMarker marker inside} COMMANDLINE) and
-capture the output to determine the set of files that is passed to the next
+capture their output to determine the set of files that is passed to the next
 COMMAND for processing.
 HELPDESCRIPTION
     echo
@@ -53,6 +53,9 @@ HELPDESCRIPTION
 			each pipeline execution.
     --with-prompt	Emulate a full prompt (as if invoking COMMAND) before
 			each execution.
+    --quiet|-q		Do not print each processed file.
+    --output-results|-O	Only print the resulting files from the final pipeline
+			step.
 
 RELATED COMMANDS:
 - tempdirPipe does not rely on output capture but instead prepares a temp
@@ -78,6 +81,8 @@ executor=evaluate
 progressSink=
 isStartWithEmpty=
 isRunIfEmpty=
+isQuiet=
+isOutputResults=
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -108,6 +113,9 @@ do
 			shift; isStartWithEmpty=t;;
 	--run-if-empty|-r)
 			shift; isRunIfEmpty=t;;
+	--quiet|-q)	shift; isQuiet=t;;
+	--output-results|-O)
+			shift; isOutputResults=t; isQuiet=t;;
 	--progress)	shift; progressSink="$1"; shift;;
 	--with-header)	shift; preExecutor=printHeader; executor=evaluate;;
 	--with-prompt)	shift; executor=withPrompt;;
@@ -190,7 +198,7 @@ do
     while IFS=$'\n' read -r filespec || { exitStatus="$filespec"; break; }	# Exit status from the process substitution (<($executor)) is lost; return the actual exit status via an incomplete (i.e. missing the newline) last line.
     do
 	files+=("$filespec")
-	printf '%s\n' "$filespec"
+	[ "$isQuiet" ] || printf '%s\n' "$filespec"
     done < <($executor "$((${#commands[@]} - $#))" "$interpolatedCommand" "${f[@]}"; printf %d "$?")
     [ $exitStatus -eq 0 ] || exit $exitStatus
 
@@ -199,3 +207,4 @@ do
 	exit 99
     fi
 done
+[ ! "$isOutputResults" ] || printf '%s\n' "${files[@]}"
