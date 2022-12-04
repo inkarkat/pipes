@@ -9,7 +9,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" "-c|--command \"COMMANDLINE [...] $inputDirMarker [...] $outputDirMarker [...] \" [...] | --exec SIMPLECOMMAND [...] $inputDirMarker [...] $outputDirMarker [...] ; [...] [-o|--output-dir OUTPUT-DIR] [-i|--input-dir INPUT-DIR]|[--] FILE [...] [-?|-h|--help]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[--with-header|--with-prompt] -c|--command \"COMMANDLINE [...] $inputDirMarker [...] $outputDirMarker [...] \" [...] | --exec SIMPLECOMMAND [...] $inputDirMarker [...] $outputDirMarker [...] ; [...] [-o|--output-dir OUTPUT-DIR] [-i|--input-dir INPUT-DIR]|[--] FILE [...] [-?|-h|--help]"
 }
 printUsage()
 {
@@ -50,6 +50,10 @@ HELPDESCRIPTION
 			directory $outputDirMarker.
 			All following arguments are taken to be arguments to the
 			CMD until an argument consisting of ';' is encountered.
+    --with-header	Print a header (containing the current COMMAND) before
+			each pipeline execution.
+    --with-prompt	Emulate a full prompt (as if invoking COMMAND) before
+			each execution.
 
 RELATED COMMANDS:
 
@@ -63,6 +67,7 @@ HELPTEXT
 sourceDirspec=
 destinationDirspec=
 typeset -a commands=()
+executor=evaluate
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -90,6 +95,8 @@ do
 			shift
 			commands+=("$cmd")
 			;;
+	--with-header)	shift; executor=withHeader;;
+	--with-prompt)	shift; executor=withPrompt;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
@@ -110,6 +117,25 @@ getTempDir()
     printf %s "$tempDir"
 }
 [ "${DEBUG:-}" ] || trap 'rm -rf -- "${tempDirspecs[@]}" 2>/dev/null' EXIT
+
+
+evaluate()
+{
+    eval "${1:?}"
+}
+
+withHeader()
+{
+    local isFirst=; [ $2 -eq 1 ] && isFirst=t
+    header ${isFirst:+--first} "$(commandName --eval --no-interpreter --undefined "${1:?}" "${1:?}")"
+
+    eval "${1:?}"
+}
+
+withPrompt()
+{
+    printf '%s\n' "${1:?}" | runWithPrompt --no-trailing-prompt --comment "$2"
+}
 
 
 if [ $# -eq 0 ]; then
@@ -143,7 +169,7 @@ do
     interpolatedCommand="${pipelineCommand//"$inputDirMarker"/$inputDirspec}"
     interpolatedCommand="${interpolatedCommand//"$outputDirMarker"/$outputDirspec}"
 
-    eval "$interpolatedCommand" || exit $?
+    $executor "$interpolatedCommand" "$((${#commands[@]} - $#))" || exit $?
 
     if emptydir -- "$outputDirspec"; then
 	printf >&2 'ERROR: No output from $ %s\n' "$pipelineCommand"
