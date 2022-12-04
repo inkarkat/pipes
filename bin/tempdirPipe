@@ -1,8 +1,12 @@
 #!/bin/bash
+set -o pipefail
+shopt -qs dotglob nullglob
 
 : ${TEMPDIRPIPE_INPUTDIR_MARKER:='{I}'}
+: ${TEMPDIRPIPE_INPUTFILES_MARKER:='{ii}'}
 : ${TEMPDIRPIPE_OUTPUTDIR_MARKER:='{O}'}
 inputDirMarker="$TEMPDIRPIPE_INPUTDIR_MARKER"; unset TEMPDIRPIPE_INPUTDIR_MARKER
+inputFilesMarker="$TEMPDIRPIPE_INPUTFILES_MARKER"; unset TEMPDIRPIPE_INPUTFILES_MARKER
 outputDirMarker="$TEMPDIRPIPE_OUTPUTDIR_MARKER"; unset TEMPDIRPIPE_OUTPUTDIR_MARKER
 
 hasProgressNotification=; type -t progressNotification >/dev/null && hasProgressNotification=t
@@ -11,7 +15,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s%s %s\n' "$(basename "$1")" '[-r|--run-if-empty]' "${hasProgressNotification:+ [--progress SINK]}" "[--with-header|--with-prompt] -c|--command \"COMMANDLINE [...] $inputDirMarker [...] $outputDirMarker [...] \" [...] | --exec SIMPLECOMMAND [...] $inputDirMarker [...] $outputDirMarker [...] ; [...] [-o|--output-dir OUTPUT-DIR] [-i|--input-dir INPUT-DIR]|[--] FILE [...] [-?|-h|--help]"
+    printf 'Usage: %q %s%s %s\n' "$(basename "$1")" '[-r|--run-if-empty]' "${hasProgressNotification:+ [--progress SINK]}" "[--with-header|--with-prompt] -c|--command \"COMMANDLINE [...] ${inputDirMarker}|${inputFilesMarker} [...] $outputDirMarker [...] \" [...] | --exec SIMPLECOMMAND [...] ${inputDirMarker}|${inputFilesMarker} [...] $outputDirMarker [...] ; [...] [-o|--output-dir OUTPUT-DIR] [-i|--input-dir INPUT-DIR]|[--] FILE [...] [-?|-h|--help]"
 }
 printUsage()
 {
@@ -26,10 +30,12 @@ printLongUsage()
     # It is printed to stdout to allow paging with 'more'.
     cat <<HELPDESCRIPTION
 Build a sequentially invoked quasi-pipeline out of COMMANDs that process files
-from one directory (passed by replacing any ${inputDirMarker}) into another directory (passed
-by replacing any ${outputDirMarker}). The first directory is INPUT-DIR / a temp directory
-seeded with FILE(s); resulting files are placed back into the original INPUT-DIR
-or the passed OUTPUT-DIR.
+from one directory (passed by replacing any ${inputDirMarker} or ${inputFilesMarker} (if the COMMAND takes
+files and you cannot glob with --exec)) into another directory (passed by
+replacing any ${outputDirMarker}).
+The first directory is INPUT-DIR / a temp directory seeded with FILE(s);
+resulting files are placed back into the original INPUT-DIR or the passed
+OUTPUT-DIR.
 HELPDESCRIPTION
     echo
     printShortUsage "$1"
@@ -44,12 +50,12 @@ HELPDESCRIPTION
 			of moving them from the last temp directory back to
 			INPUT-DIR (or the current working directory if FILE(s)
 			are passed).
-    --command|-c \"CMD [...] $inputDirMarker [...] $outputDirMarker [...] \"
-			Execute CMD to transform files in directory $inputDirMarker to
-			directory $outputDirMarker.
-    --exec CMD [...] $inputDirMarker [...] $outputDirMarker [...] ;
-			Execute CMD to transform files in directory $inputDirMarker to
-			directory $outputDirMarker.
+    --command|-c \"CMD [...] ${inputDirMarker}|${inputFilesMarker} [...] $outputDirMarker [...] \"
+			Execute CMD to transform files from glob ${inputFilesMarker} / files
+			in directory ${inputDirMarker} to directory $outputDirMarker.
+    --exec CMD [...] ${inputDirMarker}|${inputFilesMarker} [...] $outputDirMarker [...] ;
+			Execute CMD to transform files from glob ${inputFilesMarker} / files
+			in directory ${inputDirMarker} to directory $outputDirMarker.
 			All following arguments are taken to be arguments to the
 			CMD until an argument consisting of ';' is encountered.
     --run-if-empty|-r	Also run COMMANDs if the previous command did not create
@@ -88,11 +94,13 @@ do
 	--exec)		shift
 			cmd=
 			printf -v escapedInputDirMarker %q "$inputDirMarker"
+			printf -v escapedInputFilesMarker %q "$inputFilesMarker"
 			printf -v escapedOutputDirMarker %q "$outputDirMarker"
 			while [ $# -gt 0 -a "$1" != ';' ]
 			do
 			    printf -v quotedArg '%q' "$1"
 			    quotedArg="${quotedArg//"$escapedInputDirMarker"/$inputDirMarker}"
+			    quotedArg="${quotedArg//"$escapedInputFilesMarker"/$inputFilesMarker}"
 			    quotedArg="${quotedArg//"$escapedOutputDirMarker"/$outputDirMarker}"
 			    cmd="${cmd}${cmd:+ }${quotedArg}"	# %q escapes {}, we don't want that to have it interpolated later.
 			    shift
@@ -197,6 +205,7 @@ do
     fi
 
     interpolatedCommand="${pipelineCommand//"$inputDirMarker"/$inputDirspec}"
+    interpolatedCommand="${pipelineCommand//"$inputFilesMarker"/${inputDirspec}/\*}"
     interpolatedCommand="${interpolatedCommand//"$outputDirMarker"/$outputDirspec}"
 
     reportProgress "$interpolatedCommand"
