@@ -1,0 +1,154 @@
+#!/bin/bash
+
+: ${TEMPDIRPIPE_INPUTDIR_MARKER:='{I}'}
+: ${TEMPDIRPIPE_OUTPUTDIR_MARKER:='{O}'}
+inputDirMarker="$TEMPDIRPIPE_INPUTDIR_MARKER"; unset TEMPDIRPIPE_INPUTDIR_MARKER
+outputDirMarker="$TEMPDIRPIPE_OUTPUTDIR_MARKER"; unset TEMPDIRPIPE_OUTPUTDIR_MARKER
+
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" "-c|--command \"COMMANDLINE [...] $inputDirMarker [...] $outputDirMarker [...] \" [...] | --exec SIMPLECOMMAND [...] $inputDirMarker [...] $outputDirMarker [...] ; [...] [-o|--output-dir OUTPUT-DIR] [-i|--input-dir INPUT-DIR]|[--] FILE [...] [-?|-h|--help]"
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Build a sequentially invoked quasi-pipeline out of COMMANDs that process files
+from one directory (passed by replacing any ${inputDirMarker}) into another directory (passed
+by replacing any ${outputDirMarker}). The first directory is INPUT-DIR / a temp directory
+seeded with FILE(s); resulting files are placed back into the original INPUT-DIR
+or the passed OUTPUT-DIR.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --input-dir|-i INPUT-DIR
+			Process all files found in INPUT-DIR instead of the
+			current working dir / copying the passed FILE(s) into a
+			first temp directory.
+    --output-dir|-o OUTPUT-DIR
+			Place the resulting files back into OUTPUT-DIR instead
+			of moving them from the last temp directory back to
+			INPUT-DIR (or the current working directory if FILE(s)
+			are passed).
+    --command|-c \"CMD [...] $inputDirMarker [...] $outputDirMarker [...] \"
+			Execute CMD to transform files in directory $inputDirMarker to
+			directory $outputDirMarker.
+    --exec CMD [...] $inputDirMarker [...] $outputDirMarker [...] ;
+			Execute CMD to transform files in directory $inputDirMarker to
+			directory $outputDirMarker.
+			All following arguments are taken to be arguments to the
+			CMD until an argument consisting of ';' is encountered.
+
+RELATED COMMANDS:
+
+cla-exitstatus
+
+Example:
+HELPTEXT
+    printf '%q %s\n' "$(basename "$1")" '--foo bar /tmp/foobar' # TODO
+}
+
+sourceDirspec=
+destinationDirspec=
+typeset -a commands=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--input-dir|-i)	shift; sourceDirspec="${1:?}"; shift;;
+	--output-dir|-o)
+			shift; destinationDirspec="${1:?}"; shift;;
+	--command|-c)	shift; commands+=("$1"); shift;;
+	--exec)		shift
+			cmd=
+			printf -v escapedInputDirMarker %q "$inputDirMarker"
+			printf -v escapedOutputDirMarker %q "$outputDirMarker"
+			while [ $# -gt 0 -a "$1" != ';' ]
+			do
+			    printf -v quotedArg '%q' "$1"
+			    quotedArg="${quotedArg//"$escapedInputDirMarker"/$inputDirMarker}"
+			    quotedArg="${quotedArg//"$escapedOutputDirMarker"/$outputDirMarker}"
+			    cmd="${cmd}${cmd:+ }${quotedArg}"	# %q escapes {}, we don't want that to have it interpolated later.
+			    shift
+			done
+			if [ $# -eq 0 ]; then
+			    echo 'ERROR: --exec command must be concluded with ;!'; echo; printUsage "$0"
+			    exit 2
+			fi >&2
+			shift
+			commands+=("$cmd")
+			;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
+if [ ${#commands[@]} -eq 0 ]; then
+    echo 'ERROR: No COMMAND(s) specified; need to pass -c|--command "COMMANDLINE", or --exec SIMPLECOMMAND [...] ;'
+    echo
+    printUsage "$0"
+    exit 2
+fi >&2
+
+tempDirspecs=()
+getTempDir()
+{
+    local tempDir; tempDir="$(mktemp --directory --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || { dirspec="${TEMP:-/tmp}/$(basename -- "$0").$$$RANDOM"; mkdir -p -- "$dirspec" && printf %s "$dirspec"; })" || return 3
+    tempDirspecs+=("$tempDir")
+    printf %s "$tempDir"
+}
+[ "${DEBUG:-}" ] || trap 'rm -rf -- "${tempDirspecs[@]}" 2>/dev/null' EXIT
+
+
+if [ $# -eq 0 ]; then
+    inputDirspec="${sourceDirspec:-$PWD}"
+else
+    if [ -n "$sourceDirspec" ]; then
+	echo 'ERROR: Cannot combine -i|--input-dir with passed FILE(s).'
+	echo
+	printUsage "$0"
+	exit 2
+    fi >&2
+
+    # Use a first temp dir to collect the passed FILE(s).
+    inputDirspec="$(getTempDir)" || exit $?
+    sourceDirspec="$PWD"    # The default destination will be the current directory.
+    cp --archive --target-directory "$inputDirspec" "$@" || exit $?
+fi
+
+set -- "${commands[@]}"
+while [ $# -gt 0 ]
+do
+    pipelineCommand="$1"; shift
+
+    if [ $# -eq 0 ]; then
+	# The last pipeline command processes into the destination directory.
+	outputDirspec="${destinationDirspec:-$sourceDirspec}"
+    else
+	outputDirspec="$(getTempDir)" || exit $?
+    fi
+
+    interpolatedCommand="${pipelineCommand//"$inputDirMarker"/$inputDirspec}"
+    interpolatedCommand="${interpolatedCommand//"$outputDirMarker"/$outputDirspec}"
+
+    eval "$interpolatedCommand" || exit $?
+
+    if emptydir -- "$outputDirspec"; then
+	printf >&2 'ERROR: No output from $ %s\n' "$pipelineCommand"
+	exit 99
+    fi
+
+    inputDirspec="$outputDirspec"
+done
