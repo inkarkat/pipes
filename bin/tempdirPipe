@@ -1,0 +1,226 @@
+#!/bin/bash
+set -o pipefail
+shopt -qs dotglob nullglob
+
+: ${TEMPDIRPIPE_INPUTDIR_MARKER:='{I}'}
+: ${TEMPDIRPIPE_INPUTFILES_MARKER:='{ii}'}
+: ${TEMPDIRPIPE_OUTPUTDIR_MARKER:='{O}'}
+inputDirMarker="$TEMPDIRPIPE_INPUTDIR_MARKER"; unset TEMPDIRPIPE_INPUTDIR_MARKER
+inputFilesMarker="$TEMPDIRPIPE_INPUTFILES_MARKER"; unset TEMPDIRPIPE_INPUTFILES_MARKER
+outputDirMarker="$TEMPDIRPIPE_OUTPUTDIR_MARKER"; unset TEMPDIRPIPE_OUTPUTDIR_MARKER
+
+hasProgressNotification=; type -t progressNotification >/dev/null && hasProgressNotification=t
+
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s%s %s\n' "$(basename "$1")" '[-r|--run-if-empty]' "${hasProgressNotification:+ [--progress SINK]}" "[--with-header|--with-prompt] -c|--command \"COMMANDLINE [...] ${inputDirMarker}|${inputFilesMarker} [...] $outputDirMarker [...]\" [...] | --exec SIMPLECOMMAND [...] ${inputDirMarker}|${inputFilesMarker} [...] $outputDirMarker [...] ; [...] [-o|--output-dir OUTPUT-DIR] [-i|--input-dir INPUT-DIR]|[--] FILE [...] [-?|-h|--help]"
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Build a sequentially invoked quasi-pipeline out of COMMANDs that process files
+from one directory (passed by replacing any ${inputDirMarker} or ${inputFilesMarker} (if the COMMAND takes
+files and you cannot glob with --exec)) into another directory (passed by
+replacing any ${outputDirMarker}).
+The first directory is INPUT-DIR / a temp directory seeded with FILE(s);
+resulting files are placed back into the original INPUT-DIR or the passed
+OUTPUT-DIR.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --input-dir|-i INPUT-DIR
+			Process all files found in INPUT-DIR instead of the
+			current working dir / copying the passed FILE(s) into a
+			first temp directory.
+    --output-dir|-o OUTPUT-DIR
+			Place the resulting files back into OUTPUT-DIR instead
+			of moving them from the last temp directory back to
+			INPUT-DIR (or the current working directory if FILE(s)
+			are passed).
+    --command|-c "CMD [...] ${inputDirMarker}|${inputFilesMarker} [...] $outputDirMarker [...]"
+			Execute CMD to transform files from glob ${inputFilesMarker} / files
+			in directory ${inputDirMarker} to directory $outputDirMarker.
+    --exec CMD [...] ${inputDirMarker}|${inputFilesMarker} [...] $outputDirMarker [...] ;
+			Execute CMD to transform files from glob ${inputFilesMarker} / files
+			in directory ${inputDirMarker} to directory $outputDirMarker.
+			All following arguments are taken to be arguments to the
+			CMD until an argument consisting of ';' is encountered.
+    --run-if-empty|-r	Also run COMMANDs if the previous command did not create
+			any files in the temp directory (but succeeded). By
+			default, processing will be aborted.${hasProgressNotification:+
+    --progress SINK	Report the current COMMAND through one of the SINKs of
+			the progressNotification command.}
+    --with-header	Print a header (containing the current COMMAND) before
+			each pipeline execution.
+    --with-prompt	Emulate a full prompt (as if invoking COMMAND) before
+			each execution.
+
+RELATED COMMANDS:
+
+EXIT STATUS:
+    0	Complete success.
+    2	Bad invocation, wrong or missing command-line arguments.
+    3	Internal error or failed assertion.
+    99	A COMMAND did not create any files.
+    *   any exit status from COMMAND(s); a failure in there will abort the
+	pipeline
+
+Example:
+HELPTEXT
+    printf '%q %s\n' "$(basename "$1")" '--exec add-signature -o {O} -- {ii} \; --exec fakescan -o {O} -- {ii} \; -- *.pdf'
+}
+
+sourceDirspec=
+destinationDirspec=
+typeset -a commands=()
+executor=evaluate
+progressSink=
+isRunIfEmpty=
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--input-dir|-i)	shift; sourceDirspec="${1:?}"; shift;;
+	--output-dir|-o)
+			shift; destinationDirspec="${1:?}"; shift;;
+	--command|-c)	shift; commands+=("$1"); shift;;
+	--exec)		shift
+			cmd=
+			printf -v escapedInputDirMarker %q "$inputDirMarker"
+			printf -v escapedInputFilesMarker %q "$inputFilesMarker"
+			printf -v escapedOutputDirMarker %q "$outputDirMarker"
+			while [ $# -gt 0 -a "$1" != ';' ]
+			do
+			    printf -v quotedArg '%q' "$1"
+			    quotedArg="${quotedArg//"$escapedInputDirMarker"/$inputDirMarker}"
+			    quotedArg="${quotedArg//"$escapedInputFilesMarker"/$inputFilesMarker}"
+			    quotedArg="${quotedArg//"$escapedOutputDirMarker"/$outputDirMarker}"
+			    cmd="${cmd}${cmd:+ }${quotedArg}"	# %q escapes {}, we don't want that to have it interpolated later.
+			    shift
+			done
+			if [ $# -eq 0 ]; then
+			    echo 'ERROR: --exec command must be concluded with ;!'; echo; printUsage "$0"
+			    exit 2
+			fi >&2
+			shift
+			commands+=("$cmd")
+			;;
+	--run-if-empty|-r)
+			shift; isRunIfEmpty=t;;
+	--progress)	shift; progressSink="$1"; shift;;
+	--with-header)	shift; executor=withHeader;;
+	--with-prompt)	shift; executor=withPrompt;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
+if [ ${#commands[@]} -eq 0 ]; then
+    echo 'ERROR: No COMMAND(s) specified; need to pass -c|--command "COMMANDLINE", or --exec SIMPLECOMMAND [...] ;'
+    echo
+    printUsage "$0"
+    exit 2
+fi >&2
+
+tempDirspecs=()
+getTempDir()
+{
+    mktemp --directory --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null \
+	|| { dirspec="${TEMP:-/tmp}/$(basename -- "$0").$$$RANDOM"; mkdir -p -- "$dirspec" && printf %s "$dirspec"; } \
+	|| return 3
+}
+[ "${DEBUG:-}" ] || trap 'rm -rf -- "${tempDirspecs[@]}" 2>/dev/null' EXIT
+
+
+pipelineCommandName()
+{
+    commandName --eval --no-interpreter --undefined "${1:?}" "${1:?}"
+}
+
+if [ "$hasProgressNotification" ] && [ -n "$progressSink" ]; then
+    exec 3> >(progressNotification --to "$progressSink" --prepend-count 'command' --count-to "${#commands[@]}" 2>/dev/null)
+
+    reportProgress()
+    {
+	trap 'reportProgress() { :; }; trap PIPE' PIPE
+	printf '%s\n' "$(pipelineCommandName "${1:?}")" >&3 2>/dev/null  # Silence "printf: write error: Broken pipe"
+    }
+else
+    reportProgress() { :; }
+fi
+
+
+evaluate()
+{
+    eval "${1:?}"
+}
+
+withHeader()
+{
+    local isFirst=; [ $2 -eq 1 ] && isFirst=t
+    header ${isFirst:+--first} "$(pipelineCommandName "${1:?}")"
+
+    evaluate "${1:?}"
+}
+
+withPrompt()
+{
+    printf '%s\n' "${1:?}" | runWithPrompt --no-trailing-prompt --comment "$2"
+}
+
+
+if [ $# -eq 0 ]; then
+    inputDirspec="${sourceDirspec:-$PWD}"
+else
+    if [ -n "$sourceDirspec" ]; then
+	echo 'ERROR: Cannot combine -i|--input-dir with passed FILE(s).'
+	echo
+	printUsage "$0"
+	exit 2
+    fi >&2
+
+    # Use a first temp dir to collect the passed FILE(s).
+    inputDirspec="$(getTempDir)" || exit $?; tempDirspecs+=("$inputDirspec")
+    sourceDirspec="$PWD"    # The default destination will be the current directory.
+    cp --archive --target-directory "$inputDirspec" "$@" || exit $?
+fi
+
+set -- "${commands[@]}"
+while [ $# -gt 0 ]
+do
+    pipelineCommand="$1"; shift
+
+    if [ $# -eq 0 ]; then
+	# The last pipeline command processes into the destination directory.
+	outputDirspec="${destinationDirspec:-$sourceDirspec}"
+    else
+	outputDirspec="$(getTempDir)" || exit $?; tempDirspecs+=("$outputDirspec")
+    fi
+
+    interpolatedCommand="${pipelineCommand//"$inputDirMarker"/$inputDirspec}"
+    interpolatedCommand="${pipelineCommand//"$inputFilesMarker"/${inputDirspec}/\*}"
+    interpolatedCommand="${interpolatedCommand//"$outputDirMarker"/$outputDirspec}"
+
+    reportProgress "$interpolatedCommand"
+    $executor "$interpolatedCommand" "$((${#commands[@]} - $#))" || exit $?
+
+    if [ ! "$isRunIfEmpty" ] && emptydir -- "$outputDirspec"; then
+	printf >&2 'ERROR: No output from $ %s\n' "$([ "$DEBUG" ] && printf %s "$interpolatedCommand" || pipelineCommandName "$interpolatedCommand")"
+	exit 99
+    fi
+
+    inputDirspec="$outputDirspec"
+done
