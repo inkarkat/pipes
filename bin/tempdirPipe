@@ -124,9 +124,9 @@ fi >&2
 tempDirspecs=()
 getTempDir()
 {
-    local tempDir; tempDir="$(mktemp --directory --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || { dirspec="${TEMP:-/tmp}/$(basename -- "$0").$$$RANDOM"; mkdir -p -- "$dirspec" && printf %s "$dirspec"; })" || return 3
-    tempDirspecs+=("$tempDir")
-    printf %s "$tempDir"
+    mktemp --directory --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null \
+	|| { dirspec="${TEMP:-/tmp}/$(basename -- "$0").$$$RANDOM"; mkdir -p -- "$dirspec" && printf %s "$dirspec"; } \
+	|| return 3
 }
 [ "${DEBUG:-}" ] || trap 'rm -rf -- "${tempDirspecs[@]}" 2>/dev/null' EXIT
 
@@ -179,7 +179,7 @@ else
     fi >&2
 
     # Use a first temp dir to collect the passed FILE(s).
-    inputDirspec="$(getTempDir)" || exit $?
+    inputDirspec="$(getTempDir)" || exit $?; tempDirspecs+=("$inputDirspec")
     sourceDirspec="$PWD"    # The default destination will be the current directory.
     cp --archive --target-directory "$inputDirspec" "$@" || exit $?
 fi
@@ -193,7 +193,7 @@ do
 	# The last pipeline command processes into the destination directory.
 	outputDirspec="${destinationDirspec:-$sourceDirspec}"
     else
-	outputDirspec="$(getTempDir)" || exit $?
+	outputDirspec="$(getTempDir)" || exit $?; tempDirspecs+=("$outputDirspec")
     fi
 
     interpolatedCommand="${pipelineCommand//"$inputDirMarker"/$inputDirspec}"
