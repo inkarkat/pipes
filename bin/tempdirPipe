@@ -70,11 +70,17 @@ HELPDESCRIPTION
 
 RELATED COMMANDS:
 
-cla-exitstatus
+EXIT STATUS:
+    0	Complete success.
+    2	Bad invocation, wrong or missing command-line arguments.
+    3	Internal error or failed assertion.
+    99	A COMMAND did not create any files.
+    *   any exit status from COMMAND(s); a failure in there will abort the
+	pipeline
 
 Example:
 HELPTEXT
-    printf '%q %s\n' "$(basename "$1")" '--foo bar /tmp/foobar' # TODO
+    printf '%q %s\n' "$(basename "$1")" '--exec add-signature -o {O} -- {ii} \; --exec fakescan -o {O} -- {ii} \; -- *.pdf'
 }
 
 sourceDirspec=
