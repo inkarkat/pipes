@@ -15,7 +15,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s%s %s\n' "$(basename "$1")" '[-r|--run-if-empty]' "${hasProgressNotification:+ [--progress SINK]}" "[--with-header|--with-prompt] -c|--command \"COMMANDLINE [...] ${inputDirMarker}|${inputFilesMarker} [...] $outputDirMarker [...]\" [...] | --exec SIMPLECOMMAND [...] ${inputDirMarker}|${inputFilesMarker} [...] $outputDirMarker [...] ; [...] [-o|--output-dir OUTPUT-DIR] [-i|--input-dir INPUT-DIR]|[--] FILE [...] [-?|-h|--help]"
+    printf 'Usage: %q %s%s %s\n' "$(basename "$1")" '[-r|--run-if-empty]' "${hasProgressNotification:+ [--progress SINK]}" "[--with-header|--verbose-header|--with-prompt] -c|--command \"COMMANDLINE [...] ${inputDirMarker}|${inputFilesMarker} [...] $outputDirMarker [...]\" [...] | --exec SIMPLECOMMAND [...] ${inputDirMarker}|${inputFilesMarker} [...] $outputDirMarker [...] ; [...] [-o|--output-dir OUTPUT-DIR] [-i|--input-dir INPUT-DIR]|[--] FILE [...] [-?|-h|--help]"
 }
 printUsage()
 {
@@ -64,11 +64,18 @@ HELPDESCRIPTION
     --progress SINK	Report the current COMMAND through one of the SINKs of
 			the progressNotification command.}
     --with-header	Print a header (containing the current COMMAND) before
+			each pipeline execution that returns some output;
+			command output and command errors will be combined.
+    --verbose-header	Print a header (containing the current COMMAND) and list
+			all input files (recursively in the directory) before
 			each pipeline execution.
     --with-prompt	Emulate a full prompt (as if invoking COMMAND) before
 			each execution.
 
 RELATED COMMANDS:
+- fileoutputPipe does not use separate directories but instead relies on each
+  COMMAND to output the processed filespecs; these are then passed to the next
+  pipeline stage.
 
 EXIT STATUS:
     0	Complete success.
@@ -121,7 +128,9 @@ do
 	--run-if-empty|-r)
 			shift; isRunIfEmpty=t;;
 	--progress)	shift; progressSink="$1"; shift;;
-	--with-header)	shift; executor=withHeader;;
+	--with-header)	shift; executor=withHeaderOnOutput;;
+	--verbose-header)
+			shift; executor=verboseHeader;;
 	--with-prompt)	shift; executor=withPrompt;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
@@ -168,12 +177,19 @@ evaluate()
     eval "${1:?}"
 }
 
-withHeader()
+verboseHeader()
 {
     local isFirst=; [ $2 -eq 1 ] && isFirst=t
     header ${isFirst:+--first} "$(pipelineCommandName "${1:?}")"
+    find "$inputDirspec" -type f
 
     evaluate "${1:?}"
+}
+
+: ${TEMPDIRPIPE_HEADER_ID:="tempdirPipe-$$-$RANDOM"}
+withHeaderOnOutput()
+{
+    evaluate "${1:?}" 2>&1 | withHeader --id "$TEMPDIRPIPE_HEADER_ID" "$(pipelineCommandName "${1:?}")"
 }
 
 withPrompt()

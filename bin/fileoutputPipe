@@ -1,0 +1,210 @@
+#!/bin/bash
+set -o pipefail
+shopt -qs dotglob nullglob
+
+: ${FILEOUTPUTPIPE_FILE_MARKER='{}'}
+fileMarker="$FILEOUTPUTPIPE_FILE_MARKER"; unset FILEOUTPUTPIPE_FILE_MARKER
+
+hasProgressNotification=; type -t progressNotification >/dev/null && hasProgressNotification=t
+
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s%s %s\n' "$(basename "$1")" '[-r|--run-if-empty]' "${hasProgressNotification:+ [--progress SINK]}" "[--with-header|--with-prompt] [-q|--quiet|-O|--output-results] -c|--command \"COMMANDLINE [...] [${fileMarker}] [...]\" [...] | --exec SIMPLECOMMAND [...] [${fileMarker}] [...] ; [...] [-E|--start-with-empty]|[--] FILE [...] [-?|-h|--help]"
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Build a sequentially invoked quasi-pipeline out of COMMANDs that process passed files (${fileMarker:+either }appended to${fileMarker:+ or replacing any $fileMarker marker inside} COMMANDLINE) and
+capture their output to determine the set of files that is passed to the next
+COMMAND for processing.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --command|-c "CMD [...] [${fileMarker}] [...]"
+			Execute CMD to transform FILEs which ${fileMarker:+either }are appended
+			${fileMarker:+or replace any $fileMarker marker} inside CMD.
+    --exec CMD [...] [${fileMarker}] [...] ;
+			Execute CMD to transform FILEs which ${fileMarker:+either }are appended
+			${fileMarker:+or replace any $fileMarker marker} inside CMD.
+			All following arguments are taken to be arguments to the
+			CMD until an argument consisting of ';' is encountered.
+    --start-with-empty|-E
+			FILE(s) are optional; the first command gets nothing
+			passed and has to create any input itself.
+    --run-if-empty|-r	Also run COMMANDs if the previous command did not output
+			any files (but succeeded). By default, processing will
+			be aborted.${hasProgressNotification:+
+    --progress SINK	Report the current COMMAND through one of the SINKs of
+			the progressNotification command.}
+    --with-header	Print a header (containing the current COMMAND) before
+			each pipeline execution.
+    --with-prompt	Emulate a full prompt (as if invoking COMMAND) before
+			each execution.
+    --quiet|-q		Do not print each processed file.
+    --output-results|-O	Only print the resulting files from the final pipeline
+			step.
+
+RELATED COMMANDS:
+- tempdirPipe does not rely on output capture but instead prepares a temp
+  directory with input files that each COMMAND processes to a temp output
+  directory that then becomes the input directory for the next COMMAND.
+
+EXIT STATUS:
+    0	Complete success.
+    2	Bad invocation, wrong or missing command-line arguments.
+    3	Internal error or failed assertion.
+    99	A COMMAND did not output any files.
+    *   any exit status from COMMAND(s); a failure in there will abort the
+	pipeline
+
+Example:
+HELPTEXT
+    printf '%q %s\n' "$(basename "$1")" '--exec add-signature \; --exec fakescan \; -- *.pdf'
+}
+
+typeset -a commands=()
+preExecutor=:
+executor=evaluate
+progressSink=
+isStartWithEmpty=
+isRunIfEmpty=
+isQuiet=
+isOutputResults=
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--command|-c)	shift; commands+=("$1"); shift;;
+	--exec)		shift
+			cmd=
+			printf -v escapedInputDirMarker %q "$inputDirMarker"
+			printf -v escapedInputFilesMarker %q "$inputFilesMarker"
+			printf -v escapedOutputDirMarker %q "$outputDirMarker"
+			while [ $# -gt 0 -a "$1" != ';' ]
+			do
+			    printf -v quotedArg '%q' "$1"
+			    quotedArg="${quotedArg//"$escapedInputDirMarker"/$inputDirMarker}"
+			    quotedArg="${quotedArg//"$escapedInputFilesMarker"/$inputFilesMarker}"
+			    quotedArg="${quotedArg//"$escapedOutputDirMarker"/$outputDirMarker}"
+			    cmd="${cmd}${cmd:+ }${quotedArg}"	# %q escapes {}, we don't want that to have it interpolated later.
+			    shift
+			done
+			if [ $# -eq 0 ]; then
+			    echo 'ERROR: --exec command must be concluded with ;!'; echo; printUsage "$0"
+			    exit 2
+			fi >&2
+			shift
+			commands+=("$cmd")
+			;;
+	--start-with-empty|-E)
+			shift; isStartWithEmpty=t;;
+	--run-if-empty|-r)
+			shift; isRunIfEmpty=t;;
+	--quiet|-q)	shift; isQuiet=t;;
+	--output-results|-O)
+			shift; isOutputResults=t; isQuiet=t;;
+	--progress)	shift; progressSink="$1"; shift;;
+	--with-header)	shift; preExecutor=printHeader; executor=evaluate;;
+	--with-prompt)	shift; executor=withPrompt;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
+if [ ${#commands[@]} -eq 0 ]; then
+    echo 'ERROR: No COMMAND(s) specified; need to pass -c|--command "COMMANDLINE", or --exec SIMPLECOMMAND [...] ;'
+    echo
+    printUsage "$0"
+    exit 2
+fi >&2
+
+pipelineCommandName()
+{
+    commandName --eval --no-interpreter --undefined "${1:?}" "${1:?}"
+}
+
+if [ "$hasProgressNotification" ] && [ -n "$progressSink" ]; then
+    exec 3> >(progressNotification --to "$progressSink" --prepend-count 'command' --count-to "${#commands[@]}" 2>/dev/null)
+
+    reportProgress()
+    {
+	trap 'reportProgress() { :; }; trap PIPE' PIPE
+	printf '%s\n' "$(pipelineCommandName "${1:?}")" >&3 2>/dev/null  # Silence "printf: write error: Broken pipe"
+    }
+else
+    reportProgress() { :; }
+fi
+
+
+evaluate()
+{
+    local commandCnt="${1:?}"; shift
+    local interpolatedCommand="${1:?}"; shift
+    eval "$interpolatedCommand" '"$@"'
+}
+
+printHeader()
+{
+    local commandCnt="${1:?}"; shift
+    local isFirst=; [ $commandCnt -eq 1 ] && isFirst=t
+    HEADER_SINK='&2' header ${isFirst:+--first} "$(pipelineCommandName "${1:?}")"
+}
+
+withPrompt()
+{
+    local commandCnt="${1:?}"; shift
+    local interpolatedCommand="${1:?}"; shift
+    { printf '%s' "$interpolatedCommand"; printf ' %q' "$@"; printf '\n'; } \
+	| RUNWITHPROMPT_SINK='&2' runWithPrompt --no-trailing-prompt --comment "$commandCnt"
+}
+
+
+if [ $# -eq 0 ] && [ ! "$isStartWithEmpty" ]; then
+    echo 'ERROR: No FILE(s) passed.'
+    echo
+    printUsage "$0"
+    exit 2
+fi >&2
+typeset -a files=("$@")
+
+
+set -- "${commands[@]}"
+while [ $# -gt 0 ]
+do
+    pipelineCommand="$1"; shift
+
+    printf -v quotedFiles '%q ' "${files[@]}"; quotedFiles="${quotedFiles% }"
+    typeset -a f=("${files[@]}")
+    interpolatedCommand="${pipelineCommand//"$fileMarker"/$quotedFiles}"
+    [ "$interpolatedCommand" = "$pipelineCommand" ] || f=()
+
+    reportProgress "$interpolatedCommand"
+    $preExecutor "$((${#commands[@]} - $#))" "$interpolatedCommand" "${f[@]}"
+    files=()
+    exitStatus=
+    while IFS=$'\n' read -r filespec || { exitStatus="$filespec"; break; }	# Exit status from the process substitution (<($executor)) is lost; return the actual exit status via an incomplete (i.e. missing the newline) last line.
+    do
+	files+=("$filespec")
+	[ "$isQuiet" ] || printf '%s\n' "$filespec"
+    done < <($executor "$((${#commands[@]} - $#))" "$interpolatedCommand" "${f[@]}"; printf %d "$?")
+    [ $exitStatus -eq 0 ] || exit $exitStatus
+
+    if [ ! "$isRunIfEmpty" ] && [ ${#files[@]} -eq 0 -o -z "${files[*]}" ]; then
+	printf >&2 'ERROR: No output from $ %s\n' "$([ "$DEBUG" ] && printf %s "$interpolatedCommand" || pipelineCommandName "$interpolatedCommand")"
+	exit 99
+    fi
+done
+[ ! "$isOutputResults" ] || printf '%s\n' "${files[@]}"
