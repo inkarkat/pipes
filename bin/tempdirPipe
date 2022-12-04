@@ -5,11 +5,13 @@
 inputDirMarker="$TEMPDIRPIPE_INPUTDIR_MARKER"; unset TEMPDIRPIPE_INPUTDIR_MARKER
 outputDirMarker="$TEMPDIRPIPE_OUTPUTDIR_MARKER"; unset TEMPDIRPIPE_OUTPUTDIR_MARKER
 
+hasProgressNotification=; type -t progressNotification >/dev/null && hasProgressNotification=t
+
 printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" "[--with-header|--with-prompt] -c|--command \"COMMANDLINE [...] $inputDirMarker [...] $outputDirMarker [...] \" [...] | --exec SIMPLECOMMAND [...] $inputDirMarker [...] $outputDirMarker [...] ; [...] [-o|--output-dir OUTPUT-DIR] [-i|--input-dir INPUT-DIR]|[--] FILE [...] [-?|-h|--help]"
+    printf 'Usage: %q%s %s\n' "$(basename "$1")" "${hasProgressNotification:+ [--progress SINK]}" "[--with-header|--with-prompt] -c|--command \"COMMANDLINE [...] $inputDirMarker [...] $outputDirMarker [...] \" [...] | --exec SIMPLECOMMAND [...] $inputDirMarker [...] $outputDirMarker [...] ; [...] [-o|--output-dir OUTPUT-DIR] [-i|--input-dir INPUT-DIR]|[--] FILE [...] [-?|-h|--help]"
 }
 printUsage()
 {
@@ -49,7 +51,9 @@ HELPDESCRIPTION
 			Execute CMD to transform files in directory $inputDirMarker to
 			directory $outputDirMarker.
 			All following arguments are taken to be arguments to the
-			CMD until an argument consisting of ';' is encountered.
+			CMD until an argument consisting of ';' is encountered.${hasProgressNotification:+
+    --progress SINK	Report the current COMMAND through one of the SINKs of
+			the progressNotification command.}
     --with-header	Print a header (containing the current COMMAND) before
 			each pipeline execution.
     --with-prompt	Emulate a full prompt (as if invoking COMMAND) before
@@ -68,6 +72,7 @@ sourceDirspec=
 destinationDirspec=
 typeset -a commands=()
 executor=evaluate
+progressSink=
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -95,6 +100,7 @@ do
 			shift
 			commands+=("$cmd")
 			;;
+	--progress)	shift; progressSink="$1"; shift;;
 	--with-header)	shift; executor=withHeader;;
 	--with-prompt)	shift; executor=withPrompt;;
 	--)		shift; break;;
@@ -117,6 +123,19 @@ getTempDir()
     printf %s "$tempDir"
 }
 [ "${DEBUG:-}" ] || trap 'rm -rf -- "${tempDirspecs[@]}" 2>/dev/null' EXIT
+
+
+if [ "$hasProgressNotification" ] && [ -n "$progressSink" ]; then
+    exec 3> >(progressNotification --to "$progressSink" --prepend-count 'command' --count-to "${#commands[@]}" 2>/dev/null)
+
+    reportProgress()
+    {
+	trap 'reportProgress() { :; }; trap PIPE' PIPE
+	printf '%s\n' "$(commandName --eval --no-interpreter --undefined "${1:?}" "${1:?}")" >&3 2>/dev/null  # Silence "printf: write error: Broken pipe"
+    }
+else
+    reportProgress() { :; }
+fi
 
 
 evaluate()
@@ -169,6 +188,7 @@ do
     interpolatedCommand="${pipelineCommand//"$inputDirMarker"/$inputDirspec}"
     interpolatedCommand="${interpolatedCommand//"$outputDirMarker"/$outputDirspec}"
 
+    reportProgress "$interpolatedCommand"
     $executor "$interpolatedCommand" "$((${#commands[@]} - $#))" || exit $?
 
     if emptydir -- "$outputDirspec"; then
