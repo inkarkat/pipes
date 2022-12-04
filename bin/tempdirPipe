@@ -173,7 +173,7 @@ withHeader()
     local isFirst=; [ $2 -eq 1 ] && isFirst=t
     header ${isFirst:+--first} "$(pipelineCommandName "${1:?}")"
 
-    eval "${1:?}"
+    evaluate "${1:?}"
 }
 
 withPrompt()
