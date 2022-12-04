@@ -73,6 +73,9 @@ HELPDESCRIPTION
 			each execution.
 
 RELATED COMMANDS:
+- fileoutputPipe does not use separate directories but instead relies on each
+  COMMAND to output the processed filespecs; these are then passed to the next
+  pipeline stage.
 
 EXIT STATUS:
     0	Complete success.
