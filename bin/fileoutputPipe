@@ -57,7 +57,7 @@ HELPDESCRIPTION
     --output-results|-O	Only print the resulting files from the final pipeline
 			step.
 
-RELATED COMMANDS:
+SEE ALSO:
 - tempdirPipe does not rely on output capture but instead prepares a temp
   directory with input files that each COMMAND processes to a temp output
   directory that then becomes the input directory for the next COMMAND.

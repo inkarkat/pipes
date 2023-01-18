@@ -72,7 +72,7 @@ HELPDESCRIPTION
     --with-prompt	Emulate a full prompt (as if invoking COMMAND) before
 			each execution.
 
-RELATED COMMANDS:
+SEE ALSO:
 - fileoutputPipe does not use separate directories but instead relies on each
   COMMAND to output the processed filespecs; these are then passed to the next
   pipeline stage.
