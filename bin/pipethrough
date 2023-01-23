@@ -21,7 +21,7 @@ fileMarker="$PIPETHROUGH_FILE_MARKER"; unset PIPETHROUGH_FILE_MARKER
 
 printShortUsage()
 {
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-v|--verbose] [-p|--piped] [-b|--backup EXT|--backup-command writeorig|writebackup|writeOrigOrBackup] [--test-only|(--diff-only|--diff [--diff-cmd CMD] [--diff-options OPT])] [--abort-unless-change|--abort-on-change] [--message-on-change MSG] [--message-on-success MSG] [--message-on-failure MSG] [--message-on-abort MSG] [--message-subject SUBJECT [--warn-on-change|--warn-unless-change]] [-?|-h|--help] ...'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-v|--verbose] [-P|--no-pass-file|-p|--piped] [-b|--backup EXT|--backup-command writeorig|writebackup|writeOrigOrBackup] [--test-only|(--diff-only|--diff [--diff-cmd CMD] [--diff-options OPT])] [--abort-unless-change|--abort-on-change] [--message-on-change MSG] [--message-on-success MSG] [--message-on-failure MSG] [--message-on-abort MSG] [--message-subject SUBJECT [--warn-on-change|--warn-unless-change]] [-?|-h|--help] ...'
     printf 'Usage: %q %s\n' "$(basename "$1")" "[...] -c|--command \"COMMANDLINE [...] [${fileMarker}] [...]\" [-c ...] FILE [...]"
     printf 'Usage: %q %s\n' "$(basename "$1")" "[...] --exec SIMPLECOMMAND [ARGUMENT ...] [${fileMarker}] [ARGUMENT ...] ; FILE [...]"
     printf 'Usage: %q %s\n' "$(basename "$1")" "[...] -- SIMPLECOMMAND [ARGUMENT ...] [${fileMarker}] [ARGUMENT ...] -- FILE [...]"
@@ -51,6 +51,8 @@ HELPDESCRIPTION
     echo
     cat <<HELPTEXT
     --verbose|-v	    Show each executed command on stderr.
+    --no-pass-file|-P	    Don't pass FILE${fileMarker:+ when it does not replace a $fileMarker
+			    marker}; the COMMAND reads it on its own.
     --piped|-p		    Pass FILE contents via stdin into COMMAND instead of
 			    by appending FILE as the last command-line argument.
     --backup|-b EXT	    Create a backup of the original file with file
@@ -123,6 +125,7 @@ backupCommand=
 commandArgumentNum=
 diffCommand=diff; [ -t 1 ] && type -t colordiff >/dev/null && diffCommand=colordiff # Highlight diff output if available.
 diffOptions=-u
+isPassFile=t
 isPiped=
 commandJoiner=';'
 isVerbose=
@@ -150,6 +153,8 @@ do
 			shift
 			;;
 	--verbose|-v)	shift; isVerbose=t;;
+	--no-pass-file|-P)
+			shift; isPassFile=;;
 	--piped|-p)	shift; isPiped=t; commandJoiner='|';;
 	--backup|-b)	shift; backupExtension="${1:?}"; shift; backupCommand=backupToExtension;;
 	--backup-command)
@@ -372,7 +377,7 @@ do
 
     interpolatedFile="$file"; [ "$isNeedEval" ] && printf -v interpolatedFile '%q' "$file"
     typeset -a interpolatedCommands=("${commands[@]//"$fileMarker"/$interpolatedFile}")
-    typeset -a f=("$interpolatedFile")
+    typeset -a f=(); [ "$isPassFile" ] && f=("$interpolatedFile")
     [ "${interpolatedCommands[*]}" = "${commands[*]}" ] || f=()
 
     if [ "$isVerbose" ]; then
