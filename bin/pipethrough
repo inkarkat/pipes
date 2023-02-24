@@ -373,7 +373,7 @@ fi >&2
 exitStatus=0
 for file
 do
-    tmpFile=$(mktemp --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || echo "${TEMP:-/tmp}/$(basename -- "$0").$$")
+    tmpFile="$(mktemp --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || echo "${TMPDIR:-/tmp}/$(basename -- "$0").$$")"
 
     interpolatedFile="$file"; [ "$isNeedEval" ] && printf -v interpolatedFile '%q' "$file"
     typeset -a interpolatedCommands=("${commands[@]//"$fileMarker"/$interpolatedFile}")

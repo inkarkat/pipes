@@ -308,7 +308,7 @@ checkError()
 
 
 ####D echo "**** $isNeedEval ${commands[0]}"; echo "**** ${commands[1]}"; echo "**** ${commands[2]}"; exit
-tmpFile=$(mktemp --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || echo "${TEMP:-/tmp}/$(basename -- "$0").$$")
+tmpFile="$(mktemp --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || echo "${TMPDIR:-/tmp}/$(basename -- "$0").$$")"
 
 interpolatedFile="$file"; [ "$isNeedEval" ] && printf -v interpolatedFile '%q' "$file"
 typeset -a interpolatedCommands=("${commands[@]//"$fileMarker"/$interpolatedFile}")
