@@ -12,7 +12,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s%s %s\n' "$(basename "$1")" '[-r|--run-if-empty]' "${hasProgressNotification:+ [--progress SINK]}" "[--with-header|--with-prompt] [-q|--quiet|-O|--output-results] -c|--command \"COMMANDLINE [...] [${fileMarker}] [...]\" [...] | --exec SIMPLECOMMAND [...] [${fileMarker}] [...] $FILEOUTPUTPIPE_EXEC_END [...] [-E|--start-with-empty]|[--] FILE [...] [-?|-h|--help]"
+    printf 'Usage: %q %s%s %s\n' "$(basename "$1")" '[-r|--run-if-empty]' "${hasProgressNotification:+ [--progress SINK]}" "[--with-header|--with-prompt] [-q|--quiet|-O|--output-results] -c|--command \"COMMANDLINE [...] [${fileMarker}] [...]\" [-c ...] | --exec SIMPLECOMMAND [...] [${fileMarker}] [--exec ...] $FILEOUTPUTPIPE_EXEC_END [...] [-E|--start-with-empty]|[--] FILE [...] [-?|-h|--help]"
 }
 printUsage()
 {
