@@ -2,6 +2,7 @@
 set -o pipefail
 shopt -qs dotglob nullglob
 
+: ${TEMPDIRPIPE_EXEC_END=;}
 : ${TEMPDIRPIPE_INPUTDIR_MARKER:='{I}'}
 : ${TEMPDIRPIPE_INPUTFILES_MARKER:='{ii}'}
 : ${TEMPDIRPIPE_OUTPUTDIR_MARKER:='{O}'}
@@ -15,7 +16,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s%s %s\n' "$(basename "$1")" '[-r|--run-if-empty]' "${hasProgressNotification:+ [--progress SINK]}" "[--with-header|--verbose-header|--with-prompt] -c|--command \"COMMANDLINE [...] ${inputDirMarker}|${inputFilesMarker} [...] $outputDirMarker [...]\" [...] | --exec SIMPLECOMMAND [...] ${inputDirMarker}|${inputFilesMarker} [...] $outputDirMarker [...] ; [...] [-o|--output-dir OUTPUT-DIR] [-i|--input-dir INPUT-DIR]|[--] FILE [...] [-?|-h|--help]"
+    printf 'Usage: %q %s%s %s\n' "$(basename "$1")" '[-r|--run-if-empty]' "${hasProgressNotification:+ [--progress SINK]}" "[--with-header|--verbose-header|--with-prompt] -c|--command \"COMMANDLINE [...] ${inputDirMarker}|${inputFilesMarker} [...] $outputDirMarker [...]\" [...] | --exec SIMPLECOMMAND [...] ${inputDirMarker}|${inputFilesMarker} [...] $outputDirMarker [...] $TEMPDIRPIPE_EXEC_END [...] [-o|--output-dir OUTPUT-DIR] [-i|--input-dir INPUT-DIR]|[--] FILE [...] [-?|-h|--help]"
 }
 printUsage()
 {
@@ -53,11 +54,11 @@ HELPDESCRIPTION
     --command|-c "CMD [...] ${inputDirMarker}|${inputFilesMarker} [...] $outputDirMarker [...]"
 			Execute CMD to transform files from glob ${inputFilesMarker} / files
 			in directory ${inputDirMarker} to directory $outputDirMarker.
-    --exec CMD [...] ${inputDirMarker}|${inputFilesMarker} [...] $outputDirMarker [...] ;
+    --exec CMD [...] ${inputDirMarker}|${inputFilesMarker} [...] $outputDirMarker [...] $TEMPDIRPIPE_EXEC_END
 			Execute CMD to transform files from glob ${inputFilesMarker} / files
 			in directory ${inputDirMarker} to directory $outputDirMarker.
 			All following arguments are taken to be arguments to the
-			CMD until an argument consisting of ';' is encountered.
+			CMD until an argument consisting of '${TEMPDIRPIPE_EXEC_END}' is encountered.
     --run-if-empty|-r	Also run COMMANDs if the previous command did not create
 			any files in the temp directory (but succeeded). By
 			default, processing will be aborted.${hasProgressNotification:+
@@ -109,7 +110,7 @@ do
 			printf -v escapedInputDirMarker %q "$inputDirMarker"
 			printf -v escapedInputFilesMarker %q "$inputFilesMarker"
 			printf -v escapedOutputDirMarker %q "$outputDirMarker"
-			while [ $# -gt 0 -a "$1" != ';' ]
+			while [ $# -gt 0 -a "$1" != "$TEMPDIRPIPE_EXEC_END" ]
 			do
 			    printf -v quotedArg '%q' "$1"
 			    quotedArg="${quotedArg//"$escapedInputDirMarker"/$inputDirMarker}"
@@ -119,7 +120,7 @@ do
 			    shift
 			done
 			if [ $# -eq 0 ]; then
-			    echo 'ERROR: --exec command must be concluded with ;!'; echo; printUsage "$0"
+			    echo "ERROR: --exec command must be concluded with '${TEMPDIRPIPE_EXEC_END}'"; echo; printUsage "$0"
 			    exit 2
 			fi >&2
 			shift
@@ -138,7 +139,7 @@ do
     esac
 done
 if [ ${#commands[@]} -eq 0 ]; then
-    echo 'ERROR: No COMMAND(s) specified; need to pass -c|--command "COMMANDLINE", or --exec SIMPLECOMMAND [...] ;'
+    echo "ERROR: No COMMAND(s) specified; need to pass -c|--command \"COMMANDLINE\", or --exec SIMPLECOMMAND [...] $TEMPDIRPIPE_EXEC_END"
     echo
     printUsage "$0"
     exit 2

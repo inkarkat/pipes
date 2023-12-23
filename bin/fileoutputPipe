@@ -2,6 +2,7 @@
 set -o pipefail
 shopt -qs dotglob nullglob
 
+: ${FILEOUTPUTPIPE_EXEC_END=;}
 : ${FILEOUTPUTPIPE_FILE_MARKER='{}'}
 fileMarker="$FILEOUTPUTPIPE_FILE_MARKER"; unset FILEOUTPUTPIPE_FILE_MARKER
 
@@ -11,7 +12,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s%s %s\n' "$(basename "$1")" '[-r|--run-if-empty]' "${hasProgressNotification:+ [--progress SINK]}" "[--with-header|--with-prompt] [-q|--quiet|-O|--output-results] -c|--command \"COMMANDLINE [...] [${fileMarker}] [...]\" [...] | --exec SIMPLECOMMAND [...] [${fileMarker}] [...] ; [...] [-E|--start-with-empty]|[--] FILE [...] [-?|-h|--help]"
+    printf 'Usage: %q %s%s %s\n' "$(basename "$1")" '[-r|--run-if-empty]' "${hasProgressNotification:+ [--progress SINK]}" "[--with-header|--with-prompt] [-q|--quiet|-O|--output-results] -c|--command \"COMMANDLINE [...] [${fileMarker}] [...]\" [...] | --exec SIMPLECOMMAND [...] [${fileMarker}] [...] $FILEOUTPUTPIPE_EXEC_END [...] [-E|--start-with-empty]|[--] FILE [...] [-?|-h|--help]"
 }
 printUsage()
 {
@@ -36,11 +37,11 @@ HELPDESCRIPTION
     --command|-c "CMD [...] [${fileMarker}] [...]"
 			Execute CMD to transform FILEs which ${fileMarker:+either }are appended
 			${fileMarker:+or replace any $fileMarker marker} inside CMD.
-    --exec CMD [...] [${fileMarker}] [...] ;
+    --exec CMD [...] [${fileMarker}] [...] $FILEOUTPUTPIPE_EXEC_END
 			Execute CMD to transform FILEs which ${fileMarker:+either }are appended
 			${fileMarker:+or replace any $fileMarker marker} inside CMD.
 			All following arguments are taken to be arguments to the
-			CMD until an argument consisting of ';' is encountered.
+			CMD until an argument consisting of '${FILEOUTPUTPIPE_EXEC_END}' is encountered.
     --start-with-empty|-E
 			FILE(s) are optional; the first command gets nothing
 			passed and has to create any input itself.
@@ -93,7 +94,7 @@ do
 			printf -v escapedInputDirMarker %q "$inputDirMarker"
 			printf -v escapedInputFilesMarker %q "$inputFilesMarker"
 			printf -v escapedOutputDirMarker %q "$outputDirMarker"
-			while [ $# -gt 0 -a "$1" != ';' ]
+			while [ $# -gt 0 -a "$1" != "$FILEOUTPUTPIPE_EXEC_END" ]
 			do
 			    printf -v quotedArg '%q' "$1"
 			    quotedArg="${quotedArg//"$escapedInputDirMarker"/$inputDirMarker}"
@@ -103,7 +104,7 @@ do
 			    shift
 			done
 			if [ $# -eq 0 ]; then
-			    echo 'ERROR: --exec command must be concluded with ;!'; echo; printUsage "$0"
+			    echo "ERROR: --exec command must be concluded with '${FILEOUTPUTPIPE_EXEC_END}'"; echo; printUsage "$0"
 			    exit 2
 			fi >&2
 			shift
@@ -125,7 +126,7 @@ do
     esac
 done
 if [ ${#commands[@]} -eq 0 ]; then
-    echo 'ERROR: No COMMAND(s) specified; need to pass -c|--command "COMMANDLINE", or --exec SIMPLECOMMAND [...] ;'
+    echo "ERROR: No COMMAND(s) specified; need to pass -c|--command \"COMMANDLINE\", or --exec SIMPLECOMMAND [...] $FILEOUTPUTPIPE_EXEC_END"
     echo
     printUsage "$0"
     exit 2

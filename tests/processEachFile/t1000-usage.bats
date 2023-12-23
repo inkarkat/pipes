@@ -23,7 +23,7 @@
 @test "empty SIMPLECOMMAND prints message and usage instructions" {
     run processEachFile -- --
     [ $status -eq 2 ]
-    [ "${lines[0]}" = 'ERROR: No COMMAND(s) specified; need to pass -c|--command "COMMANDLINE", or SIMPLECOMMAND.' ]
+    [ "${lines[0]}" = "ERROR: No COMMAND(s) specified; need to pass -c|--command \"COMMANDLINE\", or --exec SIMPLECOMMAND [...] ; or SIMPLECOMMAND." ]
     [ "${lines[1]%% *}" = 'Usage:' ]
 }
 
@@ -37,7 +37,7 @@
 @test "--exec without ; prints message and usage instructions" {
     run processEachFile --exec true
     [ $status -eq 2 ]
-    [ "${lines[0]}" = 'ERROR: --exec command must be concluded with ;!' ]
+    [ "${lines[0]}" = "ERROR: --exec command must be concluded with ';'" ]
     [ "${lines[1]%% *}" = 'Usage:' ]
 }
 

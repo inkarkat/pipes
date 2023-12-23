@@ -61,12 +61,20 @@ assert_modifications()
     run pipethrough --verbose --exec "${commandArgs[@]}" "$foo" "$bar"
 
     [ $status -eq 2 ]
-    [ "${lines[0]}" = "ERROR: --exec command must be concluded with ;" ]
+    [ "${lines[0]}" = "ERROR: --exec command must be concluded with ';'" ]
     [ "${lines[2]%% *}" = "Usage:" ]
 }
 
 @test "--exec simple ;, two files appended" {
     run pipethrough --verbose --exec "${commandArgs[@]}" \; "$foo" "$bar"
+
+    [ "${lines[0]}" = "$commandEscaped $foo" ]
+    [ "${lines[1]}" = "$commandEscaped $barEscaped" ]
+    assert_modifications
+}
+
+@test "--exec simple ; with custom end" {
+    PIPETHROUGH_EXEC_END=END run pipethrough --verbose --exec "${commandArgs[@]}" END "$foo" "$bar"
 
     [ "${lines[0]}" = "$commandEscaped $foo" ]
     [ "${lines[1]}" = "$commandEscaped $barEscaped" ]
