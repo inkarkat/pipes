@@ -127,7 +127,6 @@ EXIT STATUS:
 HELPTEXT
 }
 
-isNeedEval=
 typeset -a commands=()
 typeset -a simpleCommand=()
 action=:
@@ -155,7 +154,7 @@ while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
-	--command|-c)	shift; commands+=(${commands:+$commandJoiner} "$1"); isNeedEval=t; shift;;
+	--command|-c)	shift; commands+=(${commands:+$commandJoiner} "$1"); shift;;
 	--exec)		shift
 			cmd=
 			printf -v escapedFileMarker %q "$fileMarker"
@@ -171,7 +170,6 @@ do
 			fi >&2
 			shift
 			commands+=(${commands:+$commandJoiner} "$cmd")
-			isNeedEval=t
 			;;
 	--verbose|-v)	shift; isVerbose=t;;
 	--progress)	shift; progressSink="$1"; shift;;
@@ -286,16 +284,12 @@ case "$1" in
 	;;
 esac
 if [ ${#simpleCommand[@]} -gt 0 ]; then
-    if [ "$isNeedEval" ]; then
-	# Combine --command and SIMPLECOMMAND; need to quote SIMPLECOMMAND to
-	# undo the effects of eval.
-	printf -v quotedSimpleCommand '%q ' "${simpleCommand[@]}"
-	quotedSimpleCommand="${quotedSimpleCommand% }"
-	printf -v escapedFileMarker %q "$fileMarker"
-	commands+=(${commands:+$commandJoiner} "${quotedSimpleCommand//"$escapedFileMarker"/$fileMarker}")	# %q escapes {}, we don't want that to have it interpolated later.
-    else
-	commands=("${simpleCommand[@]}")
-    fi
+    # Combine --command and SIMPLECOMMAND; need to quote SIMPLECOMMAND to
+    # undo the effects of eval.
+    printf -v quotedSimpleCommand '%q ' "${simpleCommand[@]}"
+    quotedSimpleCommand="${quotedSimpleCommand% }"
+    printf -v escapedFileMarker %q "$fileMarker"
+    commands+=(${commands:+$commandJoiner} "${quotedSimpleCommand//"$escapedFileMarker"/$fileMarker}")	# %q escapes {}, we don't want that to have it interpolated later.
 fi
 if [ ${#commands[@]} -eq 0 ]; then
     echo "ERROR: No COMMAND(s) specified; need to pass -c|--command \"COMMANDLINE\", or --exec SIMPLECOMMAND [...] ${PROCESSEACHFILE_EXEC_END} or SIMPLECOMMAND."
@@ -406,7 +400,7 @@ checkAbort()
 
 
 
-####D echo "**** $isNeedEval ${commands[0]}"; echo "**** ${commands[1]}"; echo "**** ${commands[2]}"; exit
+####D echo "**** ${commands[0]}"; echo "**** ${commands[1]}"; echo "**** ${commands[2]}"; exit
 if [ $# -eq 0 ]; then
     echo 'ERROR: No FILE(s) to process.'
     echo
@@ -429,14 +423,13 @@ fi
 exitStatus=0
 for file
 do
-    interpolatedFile="$file"; [ "$isNeedEval" ] && printf -v interpolatedFile '%q' "$file"
+    printf -v interpolatedFile '%q' "$file"
     typeset -a interpolatedCommands=("${commands[@]//"$fileMarker"/$interpolatedFile}")
     typeset -a f=("$interpolatedFile")
     [ "${interpolatedCommands[*]}" = "${commands[*]}" ] || f=()
 
     if [ "$isVerbose" ]; then
-	quoter='%q'; [ "$isNeedEval" ] && quoter='%s'
-	printf -v verboseCommand "$quoter " "${interpolatedCommands[@]}" "${f[@]}"
+	printf -v verboseCommand '%s ' "${interpolatedCommands[@]}" "${f[@]}"
 	printf >&2 "%s\n" "${verboseCommand% }"
     fi
 
@@ -475,20 +468,15 @@ do
 
     reportProgress "$file"
     isChange=
-    if [ "$isNeedEval" ]; then
-	eval "${interpolatedCommands[@]}" "${f[@]}"
-    else
-	"${interpolatedCommands[@]}" "${f[@]}"
-    fi && \
-	$check "$copyFilespec" "$copyDigest" "$file" && \
-	$action "$copyFilespec" "$copyDigest" "$file" && \
-	if [ "$isChange" ]; then message "$messageOnChange" "$file"; else message "$messageOnSuccess" "$file"; fi || \
-	{
+    eval "${interpolatedCommands[@]}" "${f[@]}" \
+	&& $check "$copyFilespec" "$copyDigest" "$file" \
+	&& $action "$copyFilespec" "$copyDigest" "$file" \
+	&& if [ "$isChange" ]; then message "$messageOnChange" "$file"; else message "$messageOnSuccess" "$file"; fi \
+	|| \
 	    case $? in
 		3)	exit 3;;
 		255)    message "$messageOnFailure" "$file"; exit 124;;
 		*)	message "$messageOnFailure" "$file"; exitStatus=123;;
 	    esac
-	}
 done
 exit $exitStatus

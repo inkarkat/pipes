@@ -119,7 +119,7 @@ while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
-	--command|-c)	shift; commands+=(${commands:+$commandJoiner} "$1"); isNeedEval=t; shift;;
+	--command|-c)	shift; commands+=(${commands:+$commandJoiner} "$1"); shift;;
 	--verbose|-v)	shift; isVerbose=t;;
 	--no-pass-file|-P)
 			shift; isPassFile=;;
@@ -206,16 +206,12 @@ fi
 typeset -a simpleCommand=("${@:1:$(($#-1))}")
 typeset file="${!#}"
 if [ ${#simpleCommand[@]} -gt 0 ]; then
-    if [ "$isNeedEval" ]; then
-	# Combine --command and SIMPLECOMMAND; need to quote SIMPLECOMMAND to
-	# undo the effects of eval.
-	printf -v quotedSimpleCommand '%q ' "${simpleCommand[@]}"
-	quotedSimpleCommand="${quotedSimpleCommand% }"
-	printf -v escapedFileMarker %q "$fileMarker"
-	commands+=(${commands:+$commandJoiner} "${quotedSimpleCommand//"$escapedFileMarker"/$fileMarker}")	# %q escapes {}, we don't want that to have it interpolated later.
-    else
-	commands=("${simpleCommand[@]}")
-    fi
+    # Combine --command and SIMPLECOMMAND; need to quote SIMPLECOMMAND to
+    # undo the effects of eval.
+    printf -v quotedSimpleCommand '%q ' "${simpleCommand[@]}"
+    quotedSimpleCommand="${quotedSimpleCommand% }"
+    printf -v escapedFileMarker %q "$fileMarker"
+    commands+=(${commands:+$commandJoiner} "${quotedSimpleCommand//"$escapedFileMarker"/$fileMarker}")	# %q escapes {}, we don't want that to have it interpolated later.
 fi
 if [ ${#commands[@]} -eq 0 ]; then
     echo 'ERROR: No COMMAND(s) specified; need to pass -c|--command "COMMANDLINE", or SIMPLECOMMAND.'
@@ -307,22 +303,21 @@ checkError()
 
 
 
-####D echo "**** $isNeedEval ${commands[0]}"; echo "**** ${commands[1]}"; echo "**** ${commands[2]}"; exit
+####D echo "**** ${commands[0]}"; echo "**** ${commands[1]}"; echo "**** ${commands[2]}"; exit
 tmpFile="$(mktemp --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || echo "${TMPDIR:-/tmp}/$(basename -- "$0").$$")"
 
-interpolatedFile="$file"; [ "$isNeedEval" ] && printf -v interpolatedFile '%q' "$file"
+interpolatedFile="$file"; printf -v interpolatedFile '%q' "$file"
 typeset -a interpolatedCommands=("${commands[@]//"$fileMarker"/$interpolatedFile}")
 typeset -a f=(); [ "$isPassFile" ] && f=("$interpolatedFile")
 [ "${interpolatedCommands[*]}" = "${commands[*]}" ] || f=()
 
 if [ "$isVerbose" ]; then
-    quoter='%q'; [ "$isNeedEval" ] && quoter='%s'
     if [ "$isPiped" ]; then
 	[ ${#f[@]} -eq 0 -a -n "$isPiped" ] && f=("$interpolatedFile")
-	printf "< $quoter " "${f[@]}"
+	printf '< %s ' "${f[@]}"
 	f=()
     fi
-    printf -v verboseCommand "$quoter " "${interpolatedCommands[@]}" "${f[@]}"
+    printf -v verboseCommand '%s ' "${interpolatedCommands[@]}" "${f[@]}"
     printf >&2 "%s\n" "${verboseCommand% }"
 fi
 
@@ -338,17 +333,9 @@ if [ "$isPiped" ]; then
     # consistent with that.
     inputFile="$file"
     [ -e "$inputFile" ] || inputFile=/dev/null	# So that the input redirection won't fail and the commands have something (eh nothing) to read.
-    if [ "$isNeedEval" ]; then
-	< "$inputFile" eval "${interpolatedCommands[@]}" > "$tmpFile"
-    else
-	< "$inputFile" "${interpolatedCommands[@]}" > "$tmpFile"
-    fi
+    < "$inputFile" eval "${interpolatedCommands[@]}" > "$tmpFile"
 else
-    if [ "$isNeedEval" ]; then
-	eval "${interpolatedCommands[@]}" "${f[@]}" > "$tmpFile"
-    else
-	"${interpolatedCommands[@]}" "${f[@]}" > "$tmpFile"
-    fi
+    eval "${interpolatedCommands[@]}" "${f[@]}" > "$tmpFile"
 fi && \
     $check "$tmpFile" "$file" && \
     $action "$tmpFile" "$file" && \
