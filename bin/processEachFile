@@ -19,8 +19,8 @@
 : ${PROCESSEACHFILE_COMMAND_JOINER=;}
 : ${PROCESSEACHFILE_EXEC_END=;}
 : ${PROCESSEACHFILE_FILE_WHAT=file}
-: ${PIPETHROUGH_FILE_MARKER='{}'}
-fileMarker="$PIPETHROUGH_FILE_MARKER"; unset PIPETHROUGH_FILE_MARKER
+: ${PROCESSEACHFILE_FILE_MARKER='{}'}
+fileMarker="$PROCESSEACHFILE_FILE_MARKER"; unset PROCESSEACHFILE_FILE_MARKER
 
 hasProgressNotification=; type -t progressNotification >/dev/null && hasProgressNotification=t
 
