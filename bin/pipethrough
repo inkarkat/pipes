@@ -16,6 +16,7 @@
 # @(#)pipethrough	$Id$	pipes
 ###############################################################################
 
+: ${PIPETHROUGH_COMMAND_JOINER=;}
 : ${PIPETHROUGH_EXEC_END=;}
 : ${PIPETHROUGH_FILE_MARKER='{}'}
 fileMarker="$PIPETHROUGH_FILE_MARKER"; unset PIPETHROUGH_FILE_MARKER
@@ -115,7 +116,7 @@ EXIT STATUS:
 HELPTEXT
 }
 
-typeset -a commands=()
+commands=
 typeset -a simpleCommand=()
 action=overwrite
 check=:
@@ -127,7 +128,6 @@ diffCommand=diff; [ -t 1 ] && type -t colordiff >/dev/null && diffCommand=colord
 diffOptions=-u
 isPassFile=t
 isPiped=
-commandJoiner=';'
 isVerbose=
 warnOn=
 unset messageOnChange
@@ -139,7 +139,7 @@ while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
-	--command|-c)	shift; commands+=(${commands:+$commandJoiner} "$1"); shift;;
+	--command|-c)	shift; commands+="${commands:+ $PIPETHROUGH_COMMAND_JOINER }$1"; shift;;
 	--exec)		shift
 			cmd=
 			printf -v escapedFileMarker %q "$fileMarker"
@@ -154,12 +154,12 @@ do
 			    exit 2
 			fi >&2
 			shift
-			commands+=(${commands:+$commandJoiner} "$cmd")
+			commands+="${commands:+ $PIPETHROUGH_COMMAND_JOINER }${cmd}"
 			;;
 	--verbose|-v)	shift; isVerbose=t;;
 	--no-pass-file|-P)
 			shift; isPassFile=;;
-	--piped|-p)	shift; isPiped=t; commandJoiner='|';;
+	--piped|-p)	shift; isPiped=t; PIPETHROUGH_COMMAND_JOINER='|';;
 	--backup|-b)	shift; backupExtension="${1:?}"; shift; backupCommand=backupToExtension;;
 	--backup-command)
 			shift; backupCommand="$1"; shift;;
@@ -270,9 +270,9 @@ if [ ${#simpleCommand[@]} -gt 0 ]; then
     printf -v quotedSimpleCommand '%q ' "${simpleCommand[@]}"
     quotedSimpleCommand="${quotedSimpleCommand% }"
     printf -v escapedFileMarker %q "$fileMarker"
-    commands+=(${commands:+$commandJoiner} "${quotedSimpleCommand//"$escapedFileMarker"/$fileMarker}")	# %q escapes {}, we don't want that to have it interpolated later.
+    commands+="${commands:+ $PIPETHROUGH_COMMAND_JOINER }${quotedSimpleCommand//"$escapedFileMarker"/$fileMarker}"	# %q escapes {}, we don't want that to have it interpolated later.
 fi
-if [ ${#commands[@]} -eq 0 ]; then
+if [ -z "$commands" ]; then
     echo "ERROR: No COMMAND(s) specified; need to pass -c|--command \"COMMANDLINE\", or --exec SIMPLECOMMAND [ARGUMENT ...] [${fileMarker}] [ARGUMENT ...] $PIPETHROUGH_EXEC_END or SIMPLECOMMAND."
     echo
     printUsage "$0"
@@ -360,9 +360,6 @@ checkAbort()
     esac
 }
 
-
-
-####D echo "**** ${commands[0]}"; echo "**** ${commands[1]}"; echo "**** ${commands[2]}"; exit
 if [ $# -eq 0 ]; then
     echo "ERROR: No FILE(s) to pipe."
     echo
@@ -376,9 +373,9 @@ do
     tmpFile="$(mktemp --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || echo "${TMPDIR:-/tmp}/$(basename -- "$0").$$")"
 
     interpolatedFile="$file"; printf -v interpolatedFile '%q' "$file"
-    typeset -a interpolatedCommands=("${commands[@]//"$fileMarker"/$interpolatedFile}")
+    interpolatedCommands="${commands//"$fileMarker"/$interpolatedFile}"
     typeset -a f=(); [ "$isPassFile" ] && f=("$interpolatedFile")
-    [ "${interpolatedCommands[*]}" = "${commands[*]}" ] || f=()
+    [ "$interpolatedCommands" = "$commands" ] || f=()
 
     if [ "$isVerbose" ]; then
 	if [ "$isPiped" ]; then
@@ -386,7 +383,7 @@ do
 	    printf '< %s ' "${f[@]}"
 	    f=()
 	fi
-	printf -v verboseCommand '%s ' "${interpolatedCommands[@]}" "${f[@]}"
+	printf -v verboseCommand '%s ' "$interpolatedCommands" "${f[@]}"
 	printf >&2 "%s\n" "${verboseCommand% }"
     fi
 
@@ -403,9 +400,9 @@ do
 	# consistent with that.
 	inputFile="$file"
 	[ -e "$inputFile" ] || inputFile=/dev/null	# So that the input redirection won't fail and the commands have something (eh nothing) to read.
-	< "$inputFile" eval "${interpolatedCommands[@]}" > "$tmpFile"
+	< "$inputFile" eval "$interpolatedCommands" > "$tmpFile"
     else
-	eval "${interpolatedCommands[@]}" "${f[@]}" > "$tmpFile"
+	eval "$interpolatedCommands" "${f[@]}" > "$tmpFile"
     fi && \
 	$check "$tmpFile" "$file" && \
 	$action "$tmpFile" "$file" && \

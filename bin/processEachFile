@@ -16,6 +16,7 @@
 # @(#)pipethrough	$Id$	pipes
 ###############################################################################
 
+: ${PROCESSEACHFILE_COMMAND_JOINER=;}
 : ${PROCESSEACHFILE_EXEC_END=;}
 : ${PROCESSEACHFILE_FILE_WHAT=file}
 : ${PIPETHROUGH_FILE_MARKER='{}'}
@@ -127,7 +128,7 @@ EXIT STATUS:
 HELPTEXT
 }
 
-typeset -a commands=()
+commands=
 typeset -a simpleCommand=()
 action=:
 check=:
@@ -154,7 +155,7 @@ while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
-	--command|-c)	shift; commands+=(${commands:+$commandJoiner} "$1"); shift;;
+	--command|-c)	shift; commands+="${commands:+ $PROCESSEACHFILE_COMMAND_JOINER }$1"; shift;;
 	--exec)		shift
 			cmd=
 			printf -v escapedFileMarker %q "$fileMarker"
@@ -169,7 +170,7 @@ do
 			    exit 2
 			fi >&2
 			shift
-			commands+=(${commands:+$commandJoiner} "$cmd")
+			commands+="${commands:+ $PROCESSEACHFILE_COMMAND_JOINER }${cmd}"
 			;;
 	--verbose|-v)	shift; isVerbose=t;;
 	--progress)	shift; progressSink="$1"; shift;;
@@ -289,9 +290,9 @@ if [ ${#simpleCommand[@]} -gt 0 ]; then
     printf -v quotedSimpleCommand '%q ' "${simpleCommand[@]}"
     quotedSimpleCommand="${quotedSimpleCommand% }"
     printf -v escapedFileMarker %q "$fileMarker"
-    commands+=(${commands:+$commandJoiner} "${quotedSimpleCommand//"$escapedFileMarker"/$fileMarker}")	# %q escapes {}, we don't want that to have it interpolated later.
+    commands+="${commands:+ $PROCESSEACHFILE_COMMAND_JOINER }${quotedSimpleCommand//"$escapedFileMarker"/$fileMarker}"	# %q escapes {}, we don't want that to have it interpolated later.
 fi
-if [ ${#commands[@]} -eq 0 ]; then
+if [ -z "$commands" ]; then
     echo "ERROR: No COMMAND(s) specified; need to pass -c|--command \"COMMANDLINE\", or --exec SIMPLECOMMAND [...] ${PROCESSEACHFILE_EXEC_END} or SIMPLECOMMAND."
     echo
     printUsage "$0"
@@ -398,9 +399,6 @@ checkAbort()
     esac
 }
 
-
-
-####D echo "**** ${commands[0]}"; echo "**** ${commands[1]}"; echo "**** ${commands[2]}"; exit
 if [ $# -eq 0 ]; then
     echo 'ERROR: No FILE(s) to process.'
     echo
@@ -424,12 +422,12 @@ exitStatus=0
 for file
 do
     printf -v interpolatedFile '%q' "$file"
-    typeset -a interpolatedCommands=("${commands[@]//"$fileMarker"/$interpolatedFile}")
+    interpolatedCommands="${commands//"$fileMarker"/$interpolatedFile}"
     typeset -a f=("$interpolatedFile")
-    [ "${interpolatedCommands[*]}" = "${commands[*]}" ] || f=()
+    [ "$interpolatedCommands" = "$commands" ] || f=()
 
     if [ "$isVerbose" ]; then
-	printf -v verboseCommand '%s ' "${interpolatedCommands[@]}" "${f[@]}"
+	printf -v verboseCommand '%s ' "$interpolatedCommands" "${f[@]}"
 	printf >&2 "%s\n" "${verboseCommand% }"
     fi
 
@@ -468,7 +466,7 @@ do
 
     reportProgress "$file"
     isChange=
-    eval "${interpolatedCommands[@]}" "${f[@]}" \
+    eval "$interpolatedCommands" "${f[@]}" \
 	&& $check "$copyFilespec" "$copyDigest" "$file" \
 	&& $action "$copyFilespec" "$copyDigest" "$file" \
 	&& if [ "$isChange" ]; then message "$messageOnChange" "$file"; else message "$messageOnSuccess" "$file"; fi \
