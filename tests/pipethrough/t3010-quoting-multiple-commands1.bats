@@ -63,6 +63,35 @@ assert_piped_modifications()
 }
 
 
+@test "--exec {} --exec" {
+    run pipethrough1 --verbose --exec "${commandArgs[@]}" {} \; --exec "${commandTwoArgs[@]}" \; "$bar"
+
+    [ "${lines[0]}" = "$commandEscaped $barEscaped | $commandTwoEscaped" ]
+    assert_piped_modifications
+}
+
+@test "--exec {} simple" {
+    run pipethrough1 --verbose --exec "${commandArgs[@]}" {} \; "${commandTwoArgs[@]}" "$bar"
+
+    [ "${lines[0]}" = "$commandEscaped $barEscaped | $commandTwoEscaped" ]
+    assert_piped_modifications
+}
+
+@test "--command {} --exec" {
+    run pipethrough1 --verbose --command "$commandSingleQuoted {}" --exec "${commandTwoArgs[@]}" \; "$bar"
+
+    [ "${lines[0]}" = "$commandSingleQuoted $barEscaped | $commandTwoEscaped" ]
+    assert_piped_modifications
+}
+
+@test "--exec {} --command" {
+    run pipethrough1 --verbose --exec "${commandArgs[@]}" {} \; --command "$commandTwoSingleQuoted" "$bar"
+
+    [ "${lines[0]}" = "$commandEscaped $barEscaped | $commandTwoSingleQuoted" ]
+    assert_piped_modifications
+}
+
+
 @test "--piped --command {} --command {}" {
     run pipethrough1 --piped --verbose --command "$commandSingleQuoted {}" --command "$commandTwoSingleQuoted {}" "$bar"
 

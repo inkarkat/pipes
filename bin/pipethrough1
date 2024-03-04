@@ -17,6 +17,7 @@
 ###############################################################################
 
 : ${PIPETHROUGH1_COMMAND_JOINER=|}
+: ${PIPETHROUGH1_EXEC_END=;}
 : ${PIPETHROUGH1_FILE_MARKER='{}'}
 fileMarker="$PIPETHROUGH1_FILE_MARKER"; unset PIPETHROUGH1_FILE_MARKER
 
@@ -24,6 +25,7 @@ printShortUsage()
 {
     printf 'Usage: %q %s\n' "$(basename "$1")" '[-v|--verbose] [-P|--no-pass-file|-p|--piped] [-b|--backup EXT|--backup-command writeorig|writebackup|writeOrigOrBackup] [--test-only|(--diff-only|--diff [--diff-cmd CMD] [--diff-options OPT])] [--error-unless-change|--error-on-change] [--message-on-change MSG] [--message-on-success MSG] [--message-on-failure MSG] [--message-on-error MSG] [--message-subject SUBJECT [--warn-on-change|--warn-unless-change]] [-?|-h|--help] ...'
     printf 'Usage: %q %s\n' "$(basename "$1")" "[...] -c|--command \"COMMANDLINE [...] [${fileMarker}] [...]\" [-c ...] FILE"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[...] --exec SIMPLECOMMAND [ARGUMENT ...] [${fileMarker}] [ARGUMENT ...] $PIPETHROUGH1_EXEC_END [--exec ...] FILE"
     printf 'Usage: %q %s\n' "$(basename "$1")" "[...] SIMPLECOMMAND [ARGUMENT ...] [${fileMarker}] [ARGUMENT ...] FILE"
 }
 printUsage()
@@ -40,6 +42,9 @@ Passes FILE through external COMMAND(s) (by passing FILE as the last
 command-line argument${fileMarker:+, or replacing any $fileMarker marker inside COMMAND}, or
 alternatively piping the FILE contents in through standard input) and writes the
 output back into the same FILE.
+COMMAND (and its ARGUMENT(s)) can be specified in various ways: As one quoted
+argument with -c|--command, arguments after --exec until a '${PIPETHROUGH1_EXEC_END}', or simply
+appended.
 HELPDESCRIPTION
     echo
     printShortUsage "$1"
@@ -89,6 +94,11 @@ HELPDESCRIPTION
     --command|-c CMD	    Execute CMD as a command-line. The FILE ${fileMarker:+either }is
 			    appended${fileMarker:+ or replaces any $fileMarker marker} inside
 			    COMMANDLINE.
+    --exec COMMAND ... $PIPETHROUGH1_EXEC_END    Execute COMMAND; all following arguments are taken
+			    to be arguments to the COMMAND until an argument
+			    consisting of '${PIPETHROUGH1_EXEC_END}' is encountered. Each FILE ${fileMarker:+either}
+			    is appended${fileMarker:+ or replaces any $fileMarker marker} inside
+			    COMMANDLINE.
 EXIT STATUS:
     0	if it succeeds
     123	if the COMMAND exited with status 1-125
@@ -120,6 +130,22 @@ do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--command|-c)	shift; commands+="${commands:+ $PIPETHROUGH1_COMMAND_JOINER }$1"; shift;;
+	--exec)		shift
+			cmd=
+			printf -v escapedFileMarker %q "$fileMarker"
+			while [ $# -gt 0 -a "$1" != "$PIPETHROUGH1_EXEC_END" ]
+			do
+			    printf -v quotedArg '%q' "$1"
+			    cmd="${cmd}${cmd:+ }${quotedArg//"$escapedFileMarker"/$fileMarker}"	# %q escapes {}, we don't want that to have it interpolated later.
+			    shift
+			done
+			if [ $# -eq 0 ]; then
+			    echo "ERROR: --exec command must be concluded with '${PIPETHROUGH1_EXEC_END}'"; echo; printUsage "$0"
+			    exit 2
+			fi >&2
+			shift
+			commands+="${commands:+ $PIPETHROUGH1_COMMAND_JOINER }${cmd}"
+			;;
 	--verbose|-v)	shift; isVerbose=t;;
 	--no-pass-file|-P)
 			shift; isPassFile=;;
@@ -214,7 +240,7 @@ if [ ${#simpleCommand[@]} -gt 0 ]; then
     commands+="${commands:+ $PIPETHROUGH1_COMMAND_JOINER }${quotedSimpleCommand//"$escapedFileMarker"/$fileMarker}"	# %q escapes {}, we don't want that to have it interpolated later.
 fi
 if [ -z "$commands" ]; then
-    echo 'ERROR: No COMMAND(s) specified; need to pass -c|--command "COMMANDLINE", or SIMPLECOMMAND.'
+    echo "ERROR: No COMMAND(s) specified; need to pass -c|--command \"COMMANDLINE\", or --exec SIMPLECOMMAND [ARGUMENT ...] [${fileMarker}] [ARGUMENT ...] $PIPETHROUGH1_EXEC_END or SIMPLECOMMAND."
     echo
     printUsage "$0"
     exit 2
