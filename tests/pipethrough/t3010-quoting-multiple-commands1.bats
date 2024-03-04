@@ -29,14 +29,33 @@ assert_piped_modifications()
 }
 
 
-@test "--command {} --command {}" {
-    run pipethrough1 --verbose --command "$commandSingleQuoted {}" --command "$commandTwoSingleQuoted {}" "$bar"
+@test "--command {} --command" {
+    run pipethrough1 --verbose --command "$commandSingleQuoted {}" --command "$commandTwoSingleQuoted" "$bar"
+
+    [ "${lines[0]}" = "$commandSingleQuoted $barEscaped | $commandTwoSingleQuoted" ]
+    assert_piped_modifications
+}
+
+@test "--command {} simple" {
+    run pipethrough1 --verbose --command "$commandSingleQuoted {}" "${commandTwoArgs[@]}" "$bar"
+
+    [ "${lines[0]}" = "$commandSingleQuoted $barEscaped | $commandTwoEscaped" ]
+    assert_piped_modifications
+}
+
+
+# These are a bit special: Both commands receive the input file and write
+# sequentially into the file. That's why a PIPETHROUGH1_COMMAND_JOINER override
+# is necessary.
+@test "PIPETHROUGH1_COMMAND_JOINER=; --command {} --command {}" {
+    PIPETHROUGH1_COMMAND_JOINER=';' run pipethrough1 --verbose --command "$commandSingleQuoted {}" --command "$commandTwoSingleQuoted {}" "$bar"
 
     [ "${lines[0]}" = "$commandSingleQuoted $barEscaped ; $commandTwoSingleQuoted $barEscaped" ]
     assert_sequential_modifications
 }
 
-@test "--command {} simple {}" {
+@test "PIPETHROUGH1_COMMAND_JOINER=; --command {} simple {}" {
+    export PIPETHROUGH1_COMMAND_JOINER=';'
     run pipethrough1 --verbose --command "$commandSingleQuoted {}" "${commandTwoArgs[@]}" {} "$bar"
 
     [ "${lines[0]}" = "$commandSingleQuoted $barEscaped ; $commandTwoEscaped $barEscaped" ]

@@ -29,47 +29,65 @@ assert_piped_modifications()
 }
 
 
-@test "--command {} --command {}" {
-    run pipethrough --verbose --command "$commandSingleQuoted {}" --command "$commandTwoSingleQuoted {}" "$bar"
+@test "--command {} --command" {
+    run pipethrough --verbose --command "$commandSingleQuoted {}" --command "$commandTwoSingleQuoted" "$bar"
+
+    [ "${lines[0]}" = "$commandSingleQuoted $barEscaped | $commandTwoSingleQuoted" ]
+    assert_piped_modifications
+}
+
+@test "--command {} -- simple {} --" {
+    run pipethrough --verbose --command "$commandSingleQuoted {}" -- "${commandTwoArgs[@]}" -- "$bar"
+
+    [ "${lines[0]}" = "$commandSingleQuoted $barEscaped | $commandTwoEscaped" ]
+    assert_piped_modifications
+}
+
+
+# These are a bit special: Both commands receive the input file and write
+# sequentially into the file. That's why a PIPETHROUGH1_COMMAND_JOINER override
+# is necessary.
+@test "PIPETHROUGH_COMMAND_JOINER=; --command {} --command {}" {
+    PIPETHROUGH_COMMAND_JOINER=';' run pipethrough --verbose --command "$commandSingleQuoted {}" --command "$commandTwoSingleQuoted {}" "$bar"
 
     [ "${lines[0]}" = "$commandSingleQuoted $barEscaped ; $commandTwoSingleQuoted $barEscaped" ]
     assert_sequential_modifications
 }
 
-@test "--command {} -- simple {} --" {
-    run pipethrough --verbose --command "$commandSingleQuoted {}" -- "${commandTwoArgs[@]}" {} -- "$bar"
+@test "PIPETHROUGH_COMMAND_JOINER=; --command {} -- simple {} --" {
+    PIPETHROUGH_COMMAND_JOINER=';' run pipethrough --verbose --command "$commandSingleQuoted {}" -- "${commandTwoArgs[@]}" {} -- "$bar"
 
     [ "${lines[0]}" = "$commandSingleQuoted $barEscaped ; $commandTwoEscaped $barEscaped" ]
     assert_sequential_modifications
 }
 
 
-@test "--exec {} --exec {}" {
-    run pipethrough --verbose --exec "${commandArgs[@]}" {} \; --exec "${commandTwoArgs[@]}" {} \; "$bar"
+@test "--exec {} --exec" {
+    run pipethrough --verbose --exec "${commandArgs[@]}" {} \; --exec "${commandTwoArgs[@]}" \; "$bar"
 
-    [ "${lines[0]}" = "$commandEscaped $barEscaped ; $commandTwoEscaped $barEscaped" ]
-    assert_sequential_modifications
+    [ "${lines[0]}" = "$commandEscaped $barEscaped | $commandTwoEscaped" ]
+    assert_piped_modifications
 }
 
-@test "--exec {} -- simple {} --" {
-    run pipethrough --verbose --exec "${commandArgs[@]}" {} \; -- "${commandTwoArgs[@]}" {} -- "$bar"
+@test "--exec {} -- simple --" {
+    run pipethrough --verbose --exec "${commandArgs[@]}" {} \; -- "${commandTwoArgs[@]}" -- "$bar"
 
-    [ "${lines[0]}" = "$commandEscaped $barEscaped ; $commandTwoEscaped $barEscaped" ]
-    assert_sequential_modifications
+    [ "${lines[0]}" = "$commandEscaped $barEscaped | $commandTwoEscaped" ]
+    assert_piped_modifications
 }
 
-@test "--command {} --exec {}" {
-    run pipethrough --verbose --command "$commandSingleQuoted {}" --exec "${commandTwoArgs[@]}" {} \; "$bar"
+@test "--command {} --exec" {
+    run pipethrough --verbose --command "$commandSingleQuoted {}" --exec "${commandTwoArgs[@]}" \; "$bar"
 
-    [ "${lines[0]}" = "$commandSingleQuoted $barEscaped ; $commandTwoEscaped $barEscaped" ]
-    assert_sequential_modifications
+    [ "${lines[0]}" = "$commandSingleQuoted $barEscaped | $commandTwoEscaped" ]
+    assert_piped_modifications
 }
 
-@test "--exec {} --command {}" {
-    run pipethrough --verbose --exec "${commandArgs[@]}" {} \; --command "$commandTwoSingleQuoted {}" "$bar"
+@test "--exec {} --command" {
+    run pipethrough --verbose --exec "${commandArgs[@]}" {} \; --command "$commandTwoSingleQuoted" "$bar"
 
-    [ "${lines[0]}" = "$commandEscaped $barEscaped ; $commandTwoSingleQuoted $barEscaped" ]
-    assert_sequential_modifications
+    [ "${lines[0]}" = "$commandEscaped $barEscaped | $commandTwoSingleQuoted" ]
+    assert_piped_modifications
 }
 
 
