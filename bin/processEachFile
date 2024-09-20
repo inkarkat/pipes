@@ -142,7 +142,6 @@ copyDigest=
 commandArgumentNum=
 diffCommand=diff; [ -t 1 ] && type -t colordiff >/dev/null && diffCommand=colordiff # Highlight diff output if available.
 diffOptions=-u
-commandJoiner=';'
 isVerbose=
 progressSink=
 warnOn=
@@ -421,14 +420,12 @@ fi
 exitStatus=0
 for file
 do
-    printf -v interpolatedFile '%q' "$file"
-    interpolatedCommands="${commands//"$fileMarker"/$interpolatedFile}"
-    typeset -a f=("$interpolatedFile")
-    [ "$interpolatedCommands" = "$commands" ] || f=()
+    printf -v quotedFile '%q' "$file"
+    interpolatedCommands="${commands//"$fileMarker"/$quotedFile}"
+    [ "$interpolatedCommands" = "$commands" ] || quotedFile=''
 
     if [ "$isVerbose" ]; then
-	printf -v verboseCommand '%s ' "$interpolatedCommands" "${f[@]}"
-	printf >&2 "%s\n" "${verboseCommand% }"
+	printf >&2 "%s\n" "${interpolatedCommands}${quotedFile:+ }${quotedFile}"
     fi
 
     if [ -e "$file" ]; then
@@ -466,7 +463,7 @@ do
 
     reportProgress "$file"
     isChange=
-    eval "$interpolatedCommands" "${f[@]}" \
+    eval "$interpolatedCommands" "$quotedFile" \
 	&& $check "$copyFilespec" "$copyDigest" "$file" \
 	&& $action "$copyFilespec" "$copyDigest" "$file" \
 	&& if [ "$isChange" ]; then message "$messageOnChange" "$file"; else message "$messageOnSuccess" "$file"; fi \
