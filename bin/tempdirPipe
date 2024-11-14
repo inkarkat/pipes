@@ -35,8 +35,10 @@ from one directory (passed by replacing any ${inputDirMarker} or ${inputFilesMar
 files and you cannot glob with --exec)) into another directory (passed by
 replacing any ${outputDirMarker}).
 The first directory is INPUT-DIR / a temp directory seeded with FILE(s);
-resulting files are placed back into the original INPUT-DIR or the passed
-OUTPUT-DIR.
+resulting files are placed back into (ordered by precedence):
+1. the passed OUTPUT-DIR
+2. the original INPUT-DIR
+3. the current working directory
 HELPDESCRIPTION
     echo
     printShortUsage "$1"
