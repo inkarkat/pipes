@@ -16,7 +16,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s%s %s\n' "$(basename "$1")" '[-r|--run-if-empty]' "${hasProgressNotification:+ [--progress SINK]}" "[--with-header|--verbose-header|--with-prompt] -c|--command \"COMMANDLINE [...] ${inputDirMarker}|${inputFilesMarker} [...] $outputDirMarker [...]\" [-c ...] | --exec SIMPLECOMMAND [...] ${inputDirMarker}|${inputFilesMarker} [--exec ...] $outputDirMarker [...] $TEMPDIRPIPE_EXEC_END [...] [-o|--output-dir OUTPUT-DIR] [-i|--input-dir INPUT-DIR]|[--] FILE [...] [-?|-h|--help]"
+    printf 'Usage: %q %s%s %s\n' "$(basename "$1")" '[-r|--run-if-empty]' "${hasProgressNotification:+ [--progress SINK]}" "[--with-header|--verbose-header|--with-prompt] -c|--command \"COMMANDLINE [...] ${inputDirMarker}|${inputFilesMarker} [...] $outputDirMarker [...]\" [-c ...] | --exec SIMPLECOMMAND [...] ${inputDirMarker}|${inputFilesMarker} [--exec ...] $outputDirMarker [...] $TEMPDIRPIPE_EXEC_END [...] [-O|--output-to-origin|-o|--output-dir OUTPUT-DIR] [-i|--input-dir INPUT-DIR]|[--] FILE [...] [-?|-h|--help]"
 }
 printUsage()
 {
@@ -36,7 +36,7 @@ files and you cannot glob with --exec)) into another directory (passed by
 replacing any ${outputDirMarker}).
 The first directory is INPUT-DIR / a temp directory seeded with FILE(s);
 resulting files are placed back into (ordered by precedence):
-1. the passed OUTPUT-DIR
+1. the passed OUTPUT-DIR / original common directory of all passed FILE(s)
 2. the original INPUT-DIR
 3. the current working directory
 HELPDESCRIPTION
@@ -48,6 +48,9 @@ HELPDESCRIPTION
 			Process all files found in INPUT-DIR instead of the
 			current working dir / copying the passed FILE(s) into a
 			first temp directory.
+    --output-to-origin|-O
+			Place the resulting files back into the directory common
+			to all passed FILE(s) (if such exists).
     --output-dir|-o OUTPUT-DIR
 			Place the resulting files back into OUTPUT-DIR instead
 			of moving them from the last temp directory back to
@@ -95,6 +98,7 @@ HELPTEXT
 
 sourceDirspec=
 destinationDirspec=
+isOutputToOrigin=
 typeset -a commands=()
 executor=evaluate
 progressSink=
@@ -104,6 +108,8 @@ do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--input-dir|-i)	shift; sourceDirspec="${1:?}"; shift;;
+	--output-to-origin|-O)
+			shift; isOutputToOrigin=t;;
 	--output-dir|-o)
 			shift; destinationDirspec="${1:?}"; shift;;
 	--command|-c)	shift; commands+=("$1"); shift;;
@@ -213,8 +219,19 @@ else
 
     # Use a first temp dir to collect the passed FILE(s).
     inputDirspec="$(getTempDir)" || exit $?; tempDirspecs+=("$inputDirspec")
-    sourceDirspec="$PWD"    # The default destination will be the current directory.
     cp --archive --target-directory "$inputDirspec" "$@" || exit $?
+
+    sourceDirspec="$PWD"    # The default destination will be the current directory.
+    if [ "$isOutputToOrigin" ]; then
+	if [ -n "$destinationDirspec" ]; then
+	    echo 'ERROR: -o|--output-dir cannot be combined with -O|--output-to-origin.'
+	    echo
+	    printUsage "$0"
+	    exit 2
+	fi >&2
+
+	destinationDirspec="$(commonpath --canonicalize -- "$@")"   # If this fails because there's no commonality, $sourceDispec will be used.
+    fi
 fi
 
 set -- "${commands[@]}"
