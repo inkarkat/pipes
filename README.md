@@ -2,6 +2,8 @@
 
 _Commands that simplify processing file contents through a pipeline of shell commands._
 
+![Build Status](https://github.com/inkarkat/pipes/actions/workflows/build.yml/badge.svg)
+
 Pipelines are a mainstay of Unix shell processing. However, the setup can be cumbersome, like when the output should go back into the original file(s), or if a different number of intermediate files then gets recombined into a final set of files (like in a map-reduce scenario).
 These commands simplify the setup of such pipelines for some common use cases.
 
