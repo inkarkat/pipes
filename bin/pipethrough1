@@ -15,6 +15,7 @@
 #
 # @(#)pipethrough1	$Id$	pipes
 ###############################################################################
+set -o pipefail
 
 : ${PIPETHROUGH1_COMMAND_JOINER=|}
 : ${PIPETHROUGH1_EXEC_END=;}
