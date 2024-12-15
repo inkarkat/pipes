@@ -17,6 +17,7 @@
 ###############################################################################
 set -o pipefail
 
+: ${PIPETHROUGH_NOOP_STATUS:=99}
 : ${PIPETHROUGH_COMMAND_JOINER=|}
 : ${PIPETHROUGH_EXEC_END=;}
 : ${PIPETHROUGH_FILE_MARKER='{}'}
@@ -25,10 +26,10 @@ fileMarker="$PIPETHROUGH_FILE_MARKER"; unset PIPETHROUGH_FILE_MARKER
 printShortUsage()
 {
     printf 'Usage: %q %s\n' "$(basename "$1")" '[-v|--verbose] [-P|--no-pass-file|-p|--piped] [-b|--backup EXT|--backup-command writeorig|writebackup|writeOrigOrBackup] [--test-only|(--diff-only|--diff [--diff-cmd CMD] [--diff-options OPT])] [--abort-unless-change|--abort-on-change] [--message-on-change MSG] [--message-on-success MSG] [--message-on-failure MSG] [--message-on-abort MSG] [--message-subject SUBJECT [--warn-on-change|--warn-unless-change]] [-?|-h|--help] ...'
-    printf 'Usage: %q %s\n' "$(basename "$1")" "[...] -c|--command \"COMMANDLINE [...] [${fileMarker}] [...]\" [-c ...] FILE [...]"
-    printf 'Usage: %q %s\n' "$(basename "$1")" "[...] --exec SIMPLECOMMAND [ARGUMENT ...] [${fileMarker}] [ARGUMENT ...] $PIPETHROUGH_EXEC_END [--exec ...] FILE [...]"
-    printf 'Usage: %q %s\n' "$(basename "$1")" "[...] -- SIMPLECOMMAND [ARGUMENT ...] [${fileMarker}] [ARGUMENT ...] -- FILE [...]"
-    printf 'Usage: %q %s\n' "$(basename "$1")" "[...] -n|--command-arguments N SIMPLECOMMAND [ARGUMENT ...] [${fileMarker}] [ARGUMENT ...] FILE [...]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[...] -c|--command \"COMMANDLINE [...] [${fileMarker}] [...]\" [-c ...] [FILE ...]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[...] --exec SIMPLECOMMAND [ARGUMENT ...] [${fileMarker}] [ARGUMENT ...] $PIPETHROUGH_EXEC_END [--exec ...] [FILE ...]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[...] -- SIMPLECOMMAND [ARGUMENT ...] [${fileMarker}] [ARGUMENT ...] -- [FILE ...]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[...] -n|--command-arguments N SIMPLECOMMAND [ARGUMENT ...] [${fileMarker}] [ARGUMENT ...] [FILE ...]"
 }
 printUsage()
 {
@@ -108,11 +109,12 @@ HELPDESCRIPTION
 			    The COMMAND [ARGUMENT ...] consists of N arguments;
 			    start accepting FILEs after that.
 EXIT STATUS:
-    0	if it succeeds
-    123	if any invocation of the COMMAND exited with status 1-125
-    124	if the COMMAND exited with status 255
-    1	if the processing was aborted (--abort-on-change, --abort-unless-change)
-    2	if it was invoked in a wrong way, e.g. missing FILEs
+    0	Complete success.
+    $PIPETHROUGH_NOOP_STATUS	If no FILE(s) were passed.
+    123	If any invocation of the COMMAND exited with status 1-125.
+    124	If the COMMAND exited with status 255.
+    1	If the processing was aborted (--abort-on-change, --abort-unless-change).
+    2	Bad invocation, wrong or missing command-line arguments.
     3	Internal error or failed assertion.
 HELPTEXT
 }
@@ -206,10 +208,6 @@ do
 	*)		break;;
     esac
 done
-if [ $# -eq 0 ]; then
-    printUsage "$0" >&2
-    exit 2
-fi
 if [ -n "$messageSubject" ]; then
     if [ ! "${messageOnChange+t}" ]; then
 	case "$warnOn" in
@@ -279,6 +277,7 @@ if [ -z "$commands" ]; then
     printUsage "$0"
     exit 2
 fi >&2
+[ $# -gt 0 ] || exit $PIPETHROUGH_NOOP_STATUS
 
 
 
@@ -360,13 +359,6 @@ checkAbort()
 	    ;;
     esac
 }
-
-if [ $# -eq 0 ]; then
-    echo "ERROR: No FILE(s) to pipe."
-    echo
-    printUsage "$0"
-    exit 2
-fi >&2
 
 exitStatus=0
 for file

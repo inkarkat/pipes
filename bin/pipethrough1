@@ -101,11 +101,11 @@ HELPDESCRIPTION
 			    is appended${fileMarker:+ or replaces any $fileMarker marker} inside
 			    COMMANDLINE.
 EXIT STATUS:
-    0	if it succeeds
-    123	if the COMMAND exited with status 1-125
-    124	if the COMMAND exited with status 255
-    1	if an error was raised (--error-on-change, --error-unless-change)
-    2	if it was invoked in a wrong way, e.g. missing FILE
+    0	Complete success.
+    123	If the COMMAND exited with status 1-125.
+    124	If the COMMAND exited with status 255.
+    1	If an error was raised (--error-on-change, --error-unless-change).
+    2	Bad invocation, wrong or missing command-line arguments.
     3	Internal error or failed assertion.
 HELPTEXT
 }

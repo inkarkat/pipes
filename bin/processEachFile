@@ -16,6 +16,7 @@
 # @(#)pipethrough	$Id$	pipes
 ###############################################################################
 
+: ${PROCESSEACHFILE_NOOP_STATUS:=99}
 : ${PROCESSEACHFILE_COMMAND_JOINER=;}
 : ${PROCESSEACHFILE_EXEC_END=;}
 : ${PROCESSEACHFILE_FILE_WHAT=file}
@@ -27,10 +28,10 @@ hasProgressNotification=; type -t progressNotification >/dev/null && hasProgress
 printShortUsage()
 {
     printf 'Usage: %q %s%s %s\n' "$(basename "$1")" '[-v|--verbose]' "${hasProgressNotification:+ [--progress SINK]}" '[--delta-via backup|copy|fileAge|fileSize|cksum|sha256sum] [-b|--backup EXT|--backup-command writeorig|writebackup|writeOrigOrBackup] [--diff [--diff-cmd CMD] [--diff-options OPT]] [--abort-unless-change|--abort-on-change] [--message-on-change MSG] [--message-on-success MSG] [--message-on-failure MSG] [--message-on-abort MSG] [--message-subject SUBJECT [--warn-on-change|--warn-unless-change]] [-?|-h|--help] ...'
-    printf 'Usage: %q %s\n' "$(basename "$1")" "[...] -c|--command \"COMMANDLINE [${fileMarker}] ...\" [-c ...] FILE [...]"
-    printf 'Usage: %q %s\n' "$(basename "$1")" "[...] --exec SIMPLECOMMAND [${fileMarker}] [ARGUMENTS ...] $PROCESSEACHFILE_EXEC_END [--exec ...] FILE [...]"
-    printf 'Usage: %q %s\n' "$(basename "$1")" "[...] -- SIMPLECOMMAND [${fileMarker}] [ARGUMENTS ...] -- FILE [...]"
-    printf 'Usage: %q %s\n' "$(basename "$1")" "[...] -n|--command-arguments N SIMPLECOMMAND [${fileMarker}] [ARGUMENTS ...] FILE [...]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[...] -c|--command \"COMMANDLINE [${fileMarker}] ...\" [-c ...] [FILE ...]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[...] --exec SIMPLECOMMAND [${fileMarker}] [ARGUMENTS ...] $PROCESSEACHFILE_EXEC_END [--exec ...] [FILE ...]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[...] -- SIMPLECOMMAND [${fileMarker}] [ARGUMENTS ...] -- [FILE ...]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[...] -n|--command-arguments N SIMPLECOMMAND [${fileMarker}] [ARGUMENTS ...] [FILE ...]"
 }
 printUsage()
 {
@@ -119,11 +120,12 @@ SEE ALSO:
   embellishments, and can summarize the amount of failures.
 
 EXIT STATUS:
-    0	if it succeeds
-    123	if any invocation of the COMMAND exited with status 1-125
-    124	if the COMMAND exited with status 255
-    1	if the processing was aborted (--abort-on-change, --abort-unless-change)
-    2	if it was invoked in a wrong way, e.g. missing FILEs
+    0	Complete success.
+    $PROCESSEACHFILE_NOOP_STATUS	If no FILE(s) were passed.
+    123	If any invocation of the COMMAND exited with status 1-125.
+    124	If the COMMAND exited with status 255.
+    1	If the processing was aborted (--abort-on-change, --abort-unless-change).
+    2	Bad invocation, wrong or missing command-line arguments.
     3	Internal error or failed assertion.
 HELPTEXT
 }
@@ -217,10 +219,6 @@ do
 	*)		break;;
     esac
 done
-if [ $# -eq 0 ]; then
-    printUsage "$0" >&2
-    exit 2
-fi
 if [ -n "$messageSubject" ]; then
     if [ ! "${messageOnChange+t}" ]; then
 	case "$warnOn" in
@@ -297,6 +295,7 @@ if [ -z "$commands" ]; then
     printUsage "$0"
     exit 2
 fi >&2
+[ $# -gt 0 ] || exit $PROCESSEACHFILE_NOOP_STATUS
 
 
 
@@ -397,13 +396,6 @@ checkAbort()
 	    ;;
     esac
 }
-
-if [ $# -eq 0 ]; then
-    echo 'ERROR: No FILE(s) to process.'
-    echo
-    printUsage "$0"
-    exit 2
-fi >&2
 
 if [ "$hasProgressNotification" ] && [ -n "$progressSink" ]; then
     exec 3> >(progressNotification --to "$progressSink" ${PROCESSEACHFILE_FILE_WHAT:+--prepend-count "${PROCESSEACHFILE_FILE_WHAT}"} --count-to $# 2>/dev/null)

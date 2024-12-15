@@ -3,20 +3,14 @@
 @test "no arguments prints message and usage instructions" {
     run processEachFile
     [ $status -eq 2 ]
-    [ "${lines[0]%% *}" = 'Usage:' ]
+    [ "${lines[0]}" = "ERROR: No COMMAND(s) specified; need to pass -c|--command \"COMMANDLINE\", or --exec SIMPLECOMMAND [...] ; or SIMPLECOMMAND." ]
+    [ "${lines[1]%% *}" = 'Usage:' ]
 }
 
 @test "invalid option prints message and usage instructions" {
     run processEachFile --invalid-option
     [ $status -eq 2 ]
     [ "${lines[0]}" = 'ERROR: Unknown option "--invalid-option"!' ]
-    [ "${lines[1]%% *}" = 'Usage:' ]
-}
-
-@test "missing FILE prints message and usage instructions" {
-    run processEachFile -- true --
-    [ $status -eq 2 ]
-    [ "${lines[0]}" = 'ERROR: No FILE(s) to process.' ]
     [ "${lines[1]%% *}" = 'Usage:' ]
 }
 
