@@ -12,7 +12,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s%s %s\n' "$(basename "$1")" '[-r|--run-if-empty]' "${hasProgressNotification:+ [--progress SINK]}" "[--with-header|--with-prompt] [-q|--quiet|-O|--output-results] -c|--command \"COMMANDLINE [...] [${fileMarker}] [...]\" [-c ...] | --exec SIMPLECOMMAND [...] [${fileMarker}] [--exec ...] $FILEOUTPUTPIPE_EXEC_END [...] [-E|--start-with-empty]|[--] FILE [...] [-?|-h|--help]"
+    printf 'Usage: %q %s%s %s\n' "$(basename "$1")" '[-r|--run-if-empty]' "${hasProgressNotification:+ [--progress SINK]}" "[--with-header|--with-prompt] [-q|--quiet|-O|--output-results] [--status-99-is-noop] -c|--command \"COMMANDLINE [...] [${fileMarker}] [...]\" [-c ...] | --exec SIMPLECOMMAND [...] [${fileMarker}] [--exec ...] $FILEOUTPUTPIPE_EXEC_END [...] [-E|--start-with-empty]|[--] FILE [...] [-?|-h|--help]"
 }
 printUsage()
 {
@@ -57,6 +57,8 @@ HELPDESCRIPTION
     --quiet|-q		Do not print each processed file.
     --output-results|-O	Only print the resulting files from the final pipeline
 			step.
+    --status-99-is-noop An exit status of 99 from COMMAND signifies no action or
+			inapplicability, and is treated like success.
 
 SEE ALSO:
 - tempdirPipe does not rely on output capture but instead prepares a temp
@@ -84,6 +86,7 @@ isStartWithEmpty=
 isRunIfEmpty=
 isQuiet=
 isOutputResults=
+additionalSuccessStatus=
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -120,6 +123,8 @@ do
 	--progress)	shift; progressSink="$1"; shift;;
 	--with-header)	shift; preExecutor=printHeader; executor=evaluate;;
 	--with-prompt)	shift; executor=withPrompt;;
+	--status-99-is-noop)
+			shift; additionalSuccessStatus=99;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
@@ -201,7 +206,7 @@ do
 	files+=("$filespec")
 	[ "$isQuiet" ] || printf '%s\n' "$filespec"
     done < <($executor "$((${#commands[@]} - $#))" "$interpolatedCommand" "${f[@]}"; printf %d "$?")
-    [ $exitStatus -eq 0 ] || exit $exitStatus
+    [ $exitStatus -eq 0 -o $exitStatus -eq ${additionalSuccessStatus:-0} ] || exit $exitStatus
 
     if [ ! "$isRunIfEmpty" ] && [ ${#files[@]} -eq 0 -o -z "${files[*]}" ]; then
 	printf >&2 'ERROR: No output from $ %s\n' "$([ "$DEBUG" ] && printf %s "$interpolatedCommand" || pipelineCommandName "$interpolatedCommand")"
