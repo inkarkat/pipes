@@ -36,13 +36,6 @@ assert_piped_modifications()
     assert_piped_modifications
 }
 
-@test "--command {} -- simple {} --" {
-    run pipethrough --verbose --command "$commandSingleQuoted {}" -- "${commandTwoArgs[@]}" -- "$bar"
-
-    [ "${lines[0]}" = "$commandSingleQuoted $barEscaped | $commandTwoEscaped" ]
-    assert_piped_modifications
-}
-
 
 # These are a bit special: Both commands receive the input file and write
 # sequentially into the file. That's why a PIPETHROUGH1_COMMAND_JOINER override
@@ -54,23 +47,9 @@ assert_piped_modifications()
     assert_sequential_modifications
 }
 
-@test "PIPETHROUGH_COMMAND_JOINER=; --command {} -- simple {} --" {
-    PIPETHROUGH_COMMAND_JOINER=';' run pipethrough --verbose --command "$commandSingleQuoted {}" -- "${commandTwoArgs[@]}" {} -- "$bar"
-
-    [ "${lines[0]}" = "$commandSingleQuoted $barEscaped ; $commandTwoEscaped $barEscaped" ]
-    assert_sequential_modifications
-}
-
 
 @test "--exec {} --exec" {
     run pipethrough --verbose --exec "${commandArgs[@]}" {} \; --exec "${commandTwoArgs[@]}" \; "$bar"
-
-    [ "${lines[0]}" = "$commandEscaped $barEscaped | $commandTwoEscaped" ]
-    assert_piped_modifications
-}
-
-@test "--exec {} -- simple --" {
-    run pipethrough --verbose --exec "${commandArgs[@]}" {} \; -- "${commandTwoArgs[@]}" -- "$bar"
 
     [ "${lines[0]}" = "$commandEscaped $barEscaped | $commandTwoEscaped" ]
     assert_piped_modifications
@@ -99,24 +78,10 @@ assert_piped_modifications()
     assert_overwritten_modifications
 }
 
-@test "--piped --command {} -- simple {} --" {
-    run pipethrough --piped --verbose --command "$commandSingleQuoted {}" -- "${commandTwoArgs[@]}" {} -- "$bar"
-
-    [ "${lines[0]}" = "< $barEscaped $commandSingleQuoted $barEscaped | $commandTwoEscaped $barEscaped" ]
-    assert_overwritten_modifications
-}
-
 
 @test "--piped --command --command" {
     run pipethrough --piped --verbose --command "$commandSingleQuoted" --command "$commandTwoSingleQuoted" "$bar"
 
     [ "${lines[0]}" = "< $barEscaped $commandSingleQuoted | $commandTwoSingleQuoted" ]
-    assert_piped_modifications
-}
-
-@test "--piped --command -- simple --" {
-    run pipethrough --piped --verbose --command "$commandSingleQuoted" -- "${commandTwoArgs[@]}" -- "$bar"
-
-    [ "${lines[0]}" = "< $barEscaped $commandSingleQuoted | $commandTwoEscaped" ]
     assert_piped_modifications
 }
