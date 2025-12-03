@@ -29,6 +29,13 @@ assert_modifications()
     assert_modifications
 }
 
+@test "--command, file appended after --" {
+    run pipethrough1 --verbose --command "$commandSingleQuoted" -- "$bar"
+
+    [ "${lines[0]}" = "$commandSingleQuoted $barEscaped" ]
+    assert_modifications
+}
+
 @test "simple, file appended" {
     run pipethrough1 --verbose "${commandArgs[@]}" "$bar"
 
@@ -38,6 +45,20 @@ assert_modifications()
 
 @test "simple, file via {}" {
     run pipethrough1 --verbose "${commandArgs[@]}" {} "$bar"
+
+    [ "${lines[0]}" = "$commandEscaped $barEscaped" ]
+    assert_modifications
+}
+
+@test "simple after --, file appended" {
+    run pipethrough1 --verbose -- "${commandArgs[@]}" "$bar"
+
+    [ "${lines[0]}" = "$commandEscaped $barEscaped" ]
+    assert_modifications
+}
+
+@test "--exec, file appended after --" {
+    run pipethrough1 --verbose --exec "${commandArgs[@]}" \; -- "$bar"
 
     [ "${lines[0]}" = "$commandEscaped $barEscaped" ]
     assert_modifications
