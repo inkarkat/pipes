@@ -239,30 +239,25 @@ if [ -n "$messageSubject" ]; then
     esac
 fi
 
-case "$1" in
-    --)
+if [ "$1" = -- ]; then
+    shift
+    while [ $# -gt 0 -a "$1" != '--' ]
+    do
+	simpleCommand+=("$1")
 	shift
-	while [ $# -gt 0 -a "$1" != '--' ]
-	do
-	    simpleCommand+=("$1")
-	    shift
-	done
-	if [ $# -eq 0 ]; then
-	    echo 'ERROR: -- SIMPLECOMMAND [ARGUMENT ...] must be concluded with --'; echo; printUsage "$0"
-	    exit 2
-	fi >&2
+    done
+    if [ $# -eq 0 ]; then
+	echo 'ERROR: -- SIMPLECOMMAND [ARGUMENT ...] must be concluded with --'; echo; printUsage "$0"
+	exit 2
+    fi >&2
+    shift
+elif [ -n "$commandArgumentNum" ]; then
+    for (( i = 0; i < commandArgumentNum; i++ ))
+    do
+	simpleCommand+=("$1")
 	shift
-	;;
-    *)
-	if [ -n "$commandArgumentNum" ]; then
-	    for (( i = 0; i < commandArgumentNum; i++ ))
-	    do
-		simpleCommand+=("$1")
-		shift
-	    done
-	fi
-	;;
-esac
+    done
+fi
 if [ ${#simpleCommand[@]} -gt 0 ]; then
     # Combine --command and SIMPLECOMMAND; need to quote SIMPLECOMMAND to
     # undo the effects of eval.
