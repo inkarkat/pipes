@@ -4,9 +4,8 @@ load nofile
 
 @test "does not create a backup when file does not exist" {
     backupFile="${NOFILE}.bak"; rm -f -- "$backupFile"
-    run processEachFile --backup .bak --exec "${createFileCommand[@]}" \; "$NOFILE"
-    [ $status -eq 0 ]
-    [ "$output" = "" ]
-    [ ! -e "$backupFile" ]
-    [ -e "$NOFILE" ]
+    run -0 processEachFile --backup .bak --exec "${createFileCommand[@]}" \; "$NOFILE"
+    assert_output ''
+    assert_not_exists "$backupFile"
+    assert_exists "$NOFILE"
 }

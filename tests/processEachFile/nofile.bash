@@ -1,5 +1,8 @@
 #!/bin/bash
 
+load fixture
+bats_load_library bats-file
+
 appendToFile()
 {
     local filespec="${1:?}"; shift

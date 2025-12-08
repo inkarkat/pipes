@@ -3,36 +3,32 @@
 load fixture
 
 @test "no diff when file is unchanged" {
-    run processEachFile --diff --exec "${changeNoneCommand[@]}" \; "$FILE1" "$FILE2"
-    [ $status -eq 0 ]
-    [ "$output" = "" ]
+    run -0 processEachFile --diff --exec "${changeNoneCommand[@]}" \; "$FILE1" "$FILE2"
+    assert_output ''
 }
 
 @test "show diff when first file is changed" {
-    run processEachFile --diff --exec "${changeFirstCommand[@]}" \; "$FILE1" "$FILE2"
-    [ $status -eq 0 ]
-    [ "${lines[-3]}" = "@@ -1 +1 @@" ]
-    [ "${lines[-2]}" = "-FOO" ]
-    [ "${lines[-1]}" = "+Fi" ]
+    run -0 processEachFile --diff --exec "${changeFirstCommand[@]}" \; "$FILE1" "$FILE2"
+    assert_line -n -3 "@@ -1 +1 @@"
+    assert_line -n -2 "-FOO"
+    assert_line -n -1 "+Fi"
 }
 
 @test "show diff when both files are changed" {
-    run processEachFile --diff --exec "${changeAllCommand[@]}" \; "$FILE1" "$FILE2"
-    [ $status -eq 0 ]
-    [ "${lines[-8]}" = "@@ -1 +1 @@" ]
-    [ "${lines[-7]}" = "-FOO" ]
-    [ "${lines[-6]}" = "+Fi" ]
-    [ "${lines[-3]}" = "@@ -1 +1 @@" ]
-    [ "${lines[-2]}" = "-fox" ]
-    [ "${lines[-1]}" = "+fix" ]
+    run -0 processEachFile --diff --exec "${changeAllCommand[@]}" \; "$FILE1" "$FILE2"
+    assert_line -n -8 "@@ -1 +1 @@"
+    assert_line -n -7 "-FOO"
+    assert_line -n -6 "+Fi"
+    assert_line -n -3 "@@ -1 +1 @@"
+    assert_line -n -2 "-fox"
+    assert_line -n -1 "+fix"
 }
 
 @test "show messages and diff when first file is changed" {
-    run processEachFile --message-subject SUBJECT --diff --exec "${changeFirstCommand[@]}" \; "$FILE1" "$FILE2"
-    [ $status -eq 0 ]
-    [ "${lines[-5]}" = "@@ -1 +1 @@" ]
-    [ "${lines[-4]}" = "-FOO" ]
-    [ "${lines[-3]}" = "+Fi" ]
-    [ "${lines[-2]}" = "SUBJECT changed $FILE1" ]
-    [ "${lines[-1]}" = "Successfully performed SUBJECT on $FILE2 without changing it" ]
+    run -0 processEachFile --message-subject SUBJECT --diff --exec "${changeFirstCommand[@]}" \; "$FILE1" "$FILE2"
+    assert_line -n -5 "@@ -1 +1 @@"
+    assert_line -n -4 "-FOO"
+    assert_line -n -3 "+Fi"
+    assert_line -n -2 "SUBJECT changed $FILE1"
+    assert_line -n -1 "Successfully performed SUBJECT on $FILE2 without changing it"
 }

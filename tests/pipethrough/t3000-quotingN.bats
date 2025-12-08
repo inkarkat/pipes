@@ -1,5 +1,7 @@
 #!/usr/bin/env bats
 
+load fixture
+
 setup()
 {
     readonly foo="${BATS_TMPDIR}/foo"; echo "FOO" > "$foo"
@@ -18,170 +20,166 @@ assert_modifications()
 
 
 @test "--command, two files appended" {
-    run pipethrough --verbose --command "$commandSingleQuoted" "$foo" "$bar"
+    run -0 pipethrough --verbose --command "$commandSingleQuoted" "$foo" "$bar"
 
-    [ "${lines[0]}" = "$commandSingleQuoted $foo" ]
-    [ "${lines[1]}" = "$commandSingleQuoted $barEscaped" ]
+    assert_line -n 0 "$commandSingleQuoted $foo"
+    assert_line -n 1 "$commandSingleQuoted $barEscaped"
     assert_modifications
 }
 
 @test "--command, two files via {}" {
-    run pipethrough --verbose --command "$commandSingleQuoted {}" "$foo" "$bar"
+    run -0 pipethrough --verbose --command "$commandSingleQuoted {}" "$foo" "$bar"
 
-    [ "${lines[0]}" = "$commandSingleQuoted $foo" ]
-    [ "${lines[1]}" = "$commandSingleQuoted $barEscaped" ]
+    assert_line -n 0 "$commandSingleQuoted $foo"
+    assert_line -n 1 "$commandSingleQuoted $barEscaped"
     assert_modifications
 }
 
 @test "--command, two files appended after --" {
-    run pipethrough --verbose --command "$commandSingleQuoted" -- "$foo" "$bar"
+    run -0 pipethrough --verbose --command "$commandSingleQuoted" -- "$foo" "$bar"
 
-    [ "${lines[0]}" = "$commandSingleQuoted $foo" ]
-    [ "${lines[1]}" = "$commandSingleQuoted $barEscaped" ]
+    assert_line -n 0 "$commandSingleQuoted $foo"
+    assert_line -n 1 "$commandSingleQuoted $barEscaped"
     assert_modifications
 }
 
 @test "-- simple without ending --" {
-    run pipethrough --verbose -- "${commandArgs[@]}" "$foo" "$bar"
-
-    [ $status -eq 2 ]
-    [ "${lines[0]}" = "ERROR: -- SIMPLECOMMAND [ARGUMENT ...] must be concluded with --" ]
-    [ "${lines[2]%% *}" = "Usage:" ]
+    run -2 pipethrough --verbose -- "${commandArgs[@]}" "$foo" "$bar"
+    assert_line -n 0 "ERROR: -- SIMPLECOMMAND [ARGUMENT ...] must be concluded with --"
+    assert_line -n 2 -e "^Usage:"
 }
 
 @test "-- simple --, two files appended" {
-    run pipethrough --verbose -- "${commandArgs[@]}" -- "$foo" "$bar"
+    run -0 pipethrough --verbose -- "${commandArgs[@]}" -- "$foo" "$bar"
 
-    [ "${lines[0]}" = "$commandEscaped $foo" ]
-    [ "${lines[1]}" = "$commandEscaped $barEscaped" ]
+    assert_line -n 0 "$commandEscaped $foo"
+    assert_line -n 1 "$commandEscaped $barEscaped"
     assert_modifications
 }
 
 @test "-- simple --, two files via {}" {
-    run pipethrough --verbose -- "${commandArgs[@]}" {} -- "$foo" "$bar"
+    run -0 pipethrough --verbose -- "${commandArgs[@]}" {} -- "$foo" "$bar"
 
-    [ "${lines[0]}" = "$commandEscaped $foo" ]
-    [ "${lines[1]}" = "$commandEscaped $barEscaped" ]
+    assert_line -n 0 "$commandEscaped $foo"
+    assert_line -n 1 "$commandEscaped $barEscaped"
     assert_modifications
 }
 
 @test "--exec simple without ending ;" {
-    run pipethrough --verbose --exec "${commandArgs[@]}" "$foo" "$bar"
-
-    [ $status -eq 2 ]
-    [ "${lines[0]}" = "ERROR: --exec command must be concluded with ';'" ]
-    [ "${lines[2]%% *}" = "Usage:" ]
+    run -2 pipethrough --verbose --exec "${commandArgs[@]}" "$foo" "$bar"
+    assert_line -n 0 "ERROR: --exec command must be concluded with ';'"
+    assert_line -n 2 -e "^Usage:"
 }
 
 @test "--exec simple ;, two files appended" {
-    run pipethrough --verbose --exec "${commandArgs[@]}" \; "$foo" "$bar"
+    run -0 pipethrough --verbose --exec "${commandArgs[@]}" \; "$foo" "$bar"
 
-    [ "${lines[0]}" = "$commandEscaped $foo" ]
-    [ "${lines[1]}" = "$commandEscaped $barEscaped" ]
+    assert_line -n 0 "$commandEscaped $foo"
+    assert_line -n 1 "$commandEscaped $barEscaped"
     assert_modifications
 }
 
 @test "--exec simple ;, two files appended after --" {
-    run pipethrough --verbose --exec "${commandArgs[@]}" \; -- "$foo" "$bar"
+    run -0 pipethrough --verbose --exec "${commandArgs[@]}" \; -- "$foo" "$bar"
 
-    [ "${lines[0]}" = "$commandEscaped $foo" ]
-    [ "${lines[1]}" = "$commandEscaped $barEscaped" ]
+    assert_line -n 0 "$commandEscaped $foo"
+    assert_line -n 1 "$commandEscaped $barEscaped"
     assert_modifications
 }
 
 @test "--exec simple ; with custom end" {
-    PIPETHROUGH_EXEC_END=END run pipethrough --verbose --exec "${commandArgs[@]}" END "$foo" "$bar"
+    PIPETHROUGH_EXEC_END=END run -0 pipethrough --verbose --exec "${commandArgs[@]}" END "$foo" "$bar"
 
-    [ "${lines[0]}" = "$commandEscaped $foo" ]
-    [ "${lines[1]}" = "$commandEscaped $barEscaped" ]
+    assert_line -n 0 "$commandEscaped $foo"
+    assert_line -n 1 "$commandEscaped $barEscaped"
     assert_modifications
 }
 
 @test "--exec simple ;, two files via {}" {
-    run pipethrough --verbose --exec "${commandArgs[@]}" {} \; "$foo" "$bar"
+    run -0 pipethrough --verbose --exec "${commandArgs[@]}" {} \; "$foo" "$bar"
 
-    [ "${lines[0]}" = "$commandEscaped $foo" ]
-    [ "${lines[1]}" = "$commandEscaped $barEscaped" ]
+    assert_line -n 0 "$commandEscaped $foo"
+    assert_line -n 1 "$commandEscaped $barEscaped"
     assert_modifications
 }
 
 @test "-n simple, two files appended" {
-    run pipethrough --verbose --command-arguments 3 "${commandArgs[@]}" "$foo" "$bar"
+    run -0 pipethrough --verbose --command-arguments 3 "${commandArgs[@]}" "$foo" "$bar"
 
-    [ "${lines[0]}" = "$commandEscaped $foo" ]
-    [ "${lines[1]}" = "$commandEscaped $barEscaped" ]
+    assert_line -n 0 "$commandEscaped $foo"
+    assert_line -n 1 "$commandEscaped $barEscaped"
     assert_modifications
 }
 
 @test "-n simple, two files via {}" {
-    run pipethrough --verbose --command-arguments 4 "${commandArgs[@]}" {} "$foo" "$bar"
+    run -0 pipethrough --verbose --command-arguments 4 "${commandArgs[@]}" {} "$foo" "$bar"
 
-    [ "${lines[0]}" = "$commandEscaped $foo" ]
-    [ "${lines[1]}" = "$commandEscaped $barEscaped" ]
+    assert_line -n 0 "$commandEscaped $foo"
+    assert_line -n 1 "$commandEscaped $barEscaped"
     assert_modifications
 }
 
 
 @test "--piped --command, two files appended" {
-    run pipethrough --piped --verbose --command "$commandSingleQuoted" "$foo" "$bar"
+    run -0 pipethrough --piped --verbose --command "$commandSingleQuoted" "$foo" "$bar"
 
-    [ "${lines[0]}" = "< $foo $commandSingleQuoted" ]
-    [ "${lines[1]}" = "< $barEscaped $commandSingleQuoted" ]
+    assert_line -n 0 "< $foo $commandSingleQuoted"
+    assert_line -n 1 "< $barEscaped $commandSingleQuoted"
     assert_modifications
 }
 
 @test "--piped --command, two files via {}" {
-    run pipethrough --piped --verbose --command "$commandSingleQuoted {}" "$foo" "$bar"
+    run -0 pipethrough --piped --verbose --command "$commandSingleQuoted {}" "$foo" "$bar"
 
-    [ "${lines[0]}" = "< $foo $commandSingleQuoted $foo" ]
-    [ "${lines[1]}" = "< $barEscaped $commandSingleQuoted $barEscaped" ]
+    assert_line -n 0 "< $foo $commandSingleQuoted $foo"
+    assert_line -n 1 "< $barEscaped $commandSingleQuoted $barEscaped"
     assert_modifications
 }
 
 @test "--piped -- simple --, two files appended" {
-    run pipethrough --piped --verbose -- "${commandArgs[@]}" -- "$foo" "$bar"
+    run -0 pipethrough --piped --verbose -- "${commandArgs[@]}" -- "$foo" "$bar"
 
-    [ "${lines[0]}" = "< $foo $commandEscaped" ]
-    [ "${lines[1]}" = "< $barEscaped $commandEscaped" ]
+    assert_line -n 0 "< $foo $commandEscaped"
+    assert_line -n 1 "< $barEscaped $commandEscaped"
     assert_modifications
 }
 
 @test "--piped -- simple --, two files via {}" {
-    run pipethrough --piped --verbose -- "${commandArgs[@]}" {} -- "$foo" "$bar"
+    run -0 pipethrough --piped --verbose -- "${commandArgs[@]}" {} -- "$foo" "$bar"
 
-    [ "${lines[0]}" = "< $foo $commandEscaped $foo" ]
-    [ "${lines[1]}" = "< $barEscaped $commandEscaped $barEscaped" ]
+    assert_line -n 0 "< $foo $commandEscaped $foo"
+    assert_line -n 1 "< $barEscaped $commandEscaped $barEscaped"
     assert_modifications
 }
 
 @test "--piped --exec simple ;, two files appended" {
-    run pipethrough --piped --verbose --exec "${commandArgs[@]}" \; "$foo" "$bar"
+    run -0 pipethrough --piped --verbose --exec "${commandArgs[@]}" \; "$foo" "$bar"
 
-    [ "${lines[0]}" = "< $foo $commandEscaped" ]
-    [ "${lines[1]}" = "< $barEscaped $commandEscaped" ]
+    assert_line -n 0 "< $foo $commandEscaped"
+    assert_line -n 1 "< $barEscaped $commandEscaped"
     assert_modifications
 }
 
 @test "--piped --exec simple ;, two files via {}" {
-    run pipethrough --piped --verbose --exec "${commandArgs[@]}" {} \; "$foo" "$bar"
+    run -0 pipethrough --piped --verbose --exec "${commandArgs[@]}" {} \; "$foo" "$bar"
 
-    [ "${lines[0]}" = "< $foo $commandEscaped $foo" ]
-    [ "${lines[1]}" = "< $barEscaped $commandEscaped $barEscaped" ]
+    assert_line -n 0 "< $foo $commandEscaped $foo"
+    assert_line -n 1 "< $barEscaped $commandEscaped $barEscaped"
     assert_modifications
 }
 
 @test "--piped -n simple, two files appended" {
-    run pipethrough --piped --verbose --command-arguments 3 "${commandArgs[@]}" "$foo" "$bar"
+    run -0 pipethrough --piped --verbose --command-arguments 3 "${commandArgs[@]}" "$foo" "$bar"
 
-    [ "${lines[0]}" = "< $foo $commandEscaped" ]
-    [ "${lines[1]}" = "< $barEscaped $commandEscaped" ]
+    assert_line -n 0 "< $foo $commandEscaped"
+    assert_line -n 1 "< $barEscaped $commandEscaped"
     assert_modifications
 }
 
 @test "--piped -n simple, two files via {}" {
-    run pipethrough --piped --verbose --command-arguments 4 "${commandArgs[@]}" {} "$foo" "$bar"
+    run -0 pipethrough --piped --verbose --command-arguments 4 "${commandArgs[@]}" {} "$foo" "$bar"
 
-    [ "${lines[0]}" = "< $foo $commandEscaped $foo" ]
-    [ "${lines[1]}" = "< $barEscaped $commandEscaped $barEscaped" ]
+    assert_line -n 0 "< $foo $commandEscaped $foo"
+    assert_line -n 1 "< $barEscaped $commandEscaped $barEscaped"
     assert_modifications
 }

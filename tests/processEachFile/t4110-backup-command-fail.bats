@@ -3,8 +3,7 @@
 load fixture
 
 @test "failing backup command aborts processing with exit status 3" {
-    run processEachFile --backup-command false --exec "${changeAllCommand[@]}" \; "$FILE1"
-    [ $status -eq 3 ]
-    [ "$output" = "" ]
+    run -3 processEachFile --backup-command false --exec "${changeAllCommand[@]}" \; "$FILE1"
+    assert_output ''
     assertFile1Unchanged
 }

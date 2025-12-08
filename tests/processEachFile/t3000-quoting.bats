@@ -1,5 +1,7 @@
 #!/usr/bin/env bats
 
+load fixture
+
 setup()
 {
     readonly foo="${BATS_TMPDIR}/foo"; echo "FOO" > "$foo"
@@ -18,65 +20,65 @@ assert_modifications()
 
 
 @test "--command, two files appended" {
-    run processEachFile --verbose --command "$commandSingleQuoted" "$foo" "$bar"
+    run -0 processEachFile --verbose --command "$commandSingleQuoted" "$foo" "$bar"
 
-    [ "${lines[0]}" = "$commandSingleQuoted $foo" ]
-    [ "${lines[1]}" = "$commandSingleQuoted $barEscaped" ]
+    assert_line -n 0 "$commandSingleQuoted $foo"
+    assert_line -n 1 "$commandSingleQuoted $barEscaped"
     assert_modifications
 }
 
 @test "--command, two files via {}" {
-    run processEachFile --verbose --command "$commandSingleQuoted {}" "$foo" "$bar"
+    run -0 processEachFile --verbose --command "$commandSingleQuoted {}" "$foo" "$bar"
 
-    [ "${lines[0]}" = "$commandSingleQuoted $foo" ]
-    [ "${lines[1]}" = "$commandSingleQuoted $barEscaped" ]
+    assert_line -n 0 "$commandSingleQuoted $foo"
+    assert_line -n 1 "$commandSingleQuoted $barEscaped"
     assert_modifications
 }
 
 @test "-- simple --, two files appended" {
-    run processEachFile --verbose -- "${commandArgs[@]}" -- "$foo" "$bar"
+    run -0 processEachFile --verbose -- "${commandArgs[@]}" -- "$foo" "$bar"
 
-    [ "${lines[0]}" = "$commandEscaped $foo" ]
-    [ "${lines[1]}" = "$commandEscaped $barEscaped" ]
+    assert_line -n 0 "$commandEscaped $foo"
+    assert_line -n 1 "$commandEscaped $barEscaped"
     assert_modifications
 }
 
 @test "-- simple --, two files via {}" {
-    run processEachFile --verbose -- "${commandArgs[@]}" {} -- "$foo" "$bar"
+    run -0 processEachFile --verbose -- "${commandArgs[@]}" {} -- "$foo" "$bar"
 
-    [ "${lines[0]}" = "$commandEscaped $foo" ]
-    [ "${lines[1]}" = "$commandEscaped $barEscaped" ]
+    assert_line -n 0 "$commandEscaped $foo"
+    assert_line -n 1 "$commandEscaped $barEscaped"
     assert_modifications
 }
 
 @test "--exec simple ;, two files appended" {
-    run processEachFile --verbose --exec "${commandArgs[@]}" \; "$foo" "$bar"
+    run -0 processEachFile --verbose --exec "${commandArgs[@]}" \; "$foo" "$bar"
 
-    [ "${lines[0]}" = "$commandEscaped $foo" ]
-    [ "${lines[1]}" = "$commandEscaped $barEscaped" ]
+    assert_line -n 0 "$commandEscaped $foo"
+    assert_line -n 1 "$commandEscaped $barEscaped"
     assert_modifications
 }
 
 @test "--exec simple ;, two files via {}" {
-    run processEachFile --verbose --exec "${commandArgs[@]}" {} \; "$foo" "$bar"
+    run -0 processEachFile --verbose --exec "${commandArgs[@]}" {} \; "$foo" "$bar"
 
-    [ "${lines[0]}" = "$commandEscaped $foo" ]
-    [ "${lines[1]}" = "$commandEscaped $barEscaped" ]
+    assert_line -n 0 "$commandEscaped $foo"
+    assert_line -n 1 "$commandEscaped $barEscaped"
     assert_modifications
 }
 
 @test "-n simple, two files appended" {
-    run processEachFile --verbose --command-arguments 4 "${commandArgs[@]}" "$foo" "$bar"
+    run -0 processEachFile --verbose --command-arguments 4 "${commandArgs[@]}" "$foo" "$bar"
 
-    [ "${lines[0]}" = "$commandEscaped $foo" ]
-    [ "${lines[1]}" = "$commandEscaped $barEscaped" ]
+    assert_line -n 0 "$commandEscaped $foo"
+    assert_line -n 1 "$commandEscaped $barEscaped"
     assert_modifications
 }
 
 @test "-n simple, two files via {}" {
-    run processEachFile --verbose --command-arguments 5 "${commandArgs[@]}" {} "$foo" "$bar"
+    run -0 processEachFile --verbose --command-arguments 5 "${commandArgs[@]}" {} "$foo" "$bar"
 
-    [ "${lines[0]}" = "$commandEscaped $foo" ]
-    [ "${lines[1]}" = "$commandEscaped $barEscaped" ]
+    assert_line -n 0 "$commandEscaped $foo"
+    assert_line -n 1 "$commandEscaped $barEscaped"
     assert_modifications
 }

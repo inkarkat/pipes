@@ -1,5 +1,8 @@
 #!/bin/bash
 
+load fixture
+bats_load_library bats-file
+
 nofileSetup()
 {
     readonly NOFILE="${BATS_TMPDIR}/NOFILE"; rm --force -- "$NOFILE"
