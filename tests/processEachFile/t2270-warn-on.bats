@@ -8,8 +8,8 @@ load fixture
 Warning: SUBJECT changed $FILE1
 Warning: SUBJECT changed $FILE2
 EOF
-    assertFile1Changed
-    assertFile2Changed
+    assert_FILE1_changed
+    assert_FILE2_changed
 }
 
 @test "success no-change messages when no change on processing two files" {
@@ -18,8 +18,8 @@ EOF
 Successfully performed SUBJECT on $FILE1 without changing it
 Successfully performed SUBJECT on $FILE2 without changing it
 EOF
-    assertFile1Unchanged
-    assertFile2Unchanged
+    assert_FILE1_unchanged
+    assert_FILE2_unchanged
 }
 
 @test "success and warning message when change on second file" {
@@ -28,8 +28,8 @@ EOF
 Successfully performed SUBJECT on $FILE1 without changing it
 Warning: SUBJECT changed $FILE2
 EOF
-    assertFile1Unchanged
-    assertFile2Changed
+    assert_FILE1_unchanged
+    assert_FILE2_changed
 }
 
 @test "warning and success no-change message when change on first file" {
@@ -38,8 +38,8 @@ EOF
 Warning: SUBJECT changed $FILE1
 Successfully performed SUBJECT on $FILE2 without changing it
 EOF
-    assertFile1Changed
-    assertFile2Unchanged
+    assert_FILE1_changed
+    assert_FILE2_unchanged
 }
 
 @test "failure and warning message when change on second file, and first file processing fails" {
@@ -48,8 +48,8 @@ EOF
 ERROR: Failed to SUBJECT on $FILE1
 Warning: SUBJECT changed $FILE2
 EOF
-    assertFile1Unchanged
-    assertFile2Changed
+    assert_FILE1_unchanged
+    assert_FILE2_changed
 }
 
 @test "warning and failure message when change on first file, and second file processing fails" {
@@ -58,8 +58,8 @@ EOF
 Warning: SUBJECT changed $FILE1
 ERROR: Failed to SUBJECT on $FILE2
 EOF
-    assertFile1Changed
-    assertFile2Unchanged
+    assert_FILE1_changed
+    assert_FILE2_unchanged
 }
 
 @test "failure messages when all file processing fails" {
@@ -68,14 +68,14 @@ EOF
 ERROR: Failed to SUBJECT on $FILE1
 ERROR: Failed to SUBJECT on $FILE2
 EOF
-    assertFile1Unchanged
-    assertFile2Unchanged
+    assert_FILE1_unchanged
+    assert_FILE2_unchanged
 }
 
 @test "failure message when processing fails with 255" {
     run -124 processEachFile --message-subject SUBJECT --warn-on-change --exec "${fail255Command[@]}" \; "$FILE1" "$FILE2"
     assert_output "ERROR: Failed to SUBJECT on $FILE1"
-    assertFile1Unchanged
-    assertFile2Unchanged
+    assert_FILE1_unchanged
+    assert_FILE2_unchanged
 }
 

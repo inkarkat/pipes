@@ -18,19 +18,19 @@ setup()
     fail255Command=(sed -i -e 'q 255')
 }
 
-assertFile1Unchanged()
+assert_FILE1_unchanged()
 {
     [ "$(< "${1:-$FILE1}")" = 'FOO' ]
 }
-assertFile2Unchanged()
+assert_FILE2_unchanged()
 {
     [ "$(< "${1:-$FILE2}")" = 'fox' ]
 }
-assertFile1Changed()
+assert_FILE1_changed()
 {
     [ "$(< "${1:-$FILE1}")" = 'Fi' ]
 }
-assertFile2Changed()
+assert_FILE2_changed()
 {
     [ "$(< "${1:-$FILE2}")" = 'fix' ]
 }

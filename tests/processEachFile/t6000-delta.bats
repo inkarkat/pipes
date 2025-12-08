@@ -5,8 +5,8 @@ load fixture
 @test "usage error when trying delta via backup without backup" {
     run -2 processEachFile --delta-via backup --message-subject SUBJECT --exec "${changeAllCommand[@]}" \; "$FILE1" "$FILE2"
     assert_output 'ERROR: Cannot use --delta-via backup without enabling backups.'
-    assertFile1Unchanged
-    assertFile2Unchanged
+    assert_FILE1_unchanged
+    assert_FILE2_unchanged
 }
 
 @test "explicitly specifying default delta via copy give change messages for subject" {
@@ -15,8 +15,8 @@ load fixture
 Successfully performed SUBJECT on $FILE1 without changing it
 SUBJECT changed $FILE2
 EOF
-    assertFile1Unchanged
-    assertFile2Changed
+    assert_FILE1_unchanged
+    assert_FILE2_changed
 }
 
 @test "delta via file age give change messages for both files even though the contents of the first did not change" {
@@ -28,8 +28,8 @@ EOF
 SUBJECT changed $FILE1
 SUBJECT changed $FILE2
 EOF
-    assertFile1Unchanged
-    assertFile2Changed
+    assert_FILE1_unchanged
+    assert_FILE2_changed
 }
 
 @test "delta via file size gives change message for the first file only because the size of the second file is not changed" {
@@ -40,8 +40,8 @@ EOF
 SUBJECT changed $FILE1
 Successfully performed SUBJECT on $FILE2 without changing it
 EOF
-    assertFile1Changed
-    assertFile2Changed
+    assert_FILE1_changed
+    assert_FILE2_changed
 }
 
 @test "delta via cksum give change messages for the second file" {
@@ -52,8 +52,8 @@ EOF
 Successfully performed SUBJECT on $FILE1 without changing it
 SUBJECT changed $FILE2
 EOF
-    assertFile1Unchanged
-    assertFile2Changed
+    assert_FILE1_unchanged
+    assert_FILE2_changed
 }
 
 @test "delta via sha256sum give change messages for the second file" {
@@ -64,6 +64,6 @@ EOF
 Successfully performed SUBJECT on $FILE1 without changing it
 SUBJECT changed $FILE2
 EOF
-    assertFile1Unchanged
-    assertFile2Changed
+    assert_FILE1_unchanged
+    assert_FILE2_changed
 }

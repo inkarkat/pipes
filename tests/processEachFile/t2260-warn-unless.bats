@@ -8,8 +8,8 @@ load fixture
 SUBJECT changed $FILE1
 SUBJECT changed $FILE2
 EOF
-    assertFile1Changed
-    assertFile2Changed
+    assert_FILE1_changed
+    assert_FILE2_changed
 }
 
 @test "warning messages when no change on processing two files" {
@@ -18,8 +18,8 @@ EOF
 Warning: SUBJECT did not change $FILE1
 Warning: SUBJECT did not change $FILE2
 EOF
-    assertFile1Unchanged
-    assertFile2Unchanged
+    assert_FILE1_unchanged
+    assert_FILE2_unchanged
 }
 
 @test "warning and change message when no change on first file" {
@@ -28,8 +28,8 @@ EOF
 Warning: SUBJECT did not change $FILE1
 SUBJECT changed $FILE2
 EOF
-    assertFile1Unchanged
-    assertFile2Changed
+    assert_FILE1_unchanged
+    assert_FILE2_changed
 }
 
 @test "change and warning message when no change on second file" {
@@ -38,8 +38,8 @@ EOF
 SUBJECT changed $FILE1
 Warning: SUBJECT did not change $FILE2
 EOF
-    assertFile1Changed
-    assertFile2Unchanged
+    assert_FILE1_changed
+    assert_FILE2_unchanged
 }
 
 @test "failure and change message when first file processing fails" {
@@ -48,8 +48,8 @@ EOF
 ERROR: Failed to SUBJECT on $FILE1
 SUBJECT changed $FILE2
 EOF
-    assertFile1Unchanged
-    assertFile2Changed
+    assert_FILE1_unchanged
+    assert_FILE2_changed
 }
 
 @test "change and failure message when second file processing fails" {
@@ -58,8 +58,8 @@ EOF
 SUBJECT changed $FILE1
 ERROR: Failed to SUBJECT on $FILE2
 EOF
-    assertFile1Changed
-    assertFile2Unchanged
+    assert_FILE1_changed
+    assert_FILE2_unchanged
 }
 
 @test "no abort message when all file processing fails" {
@@ -68,13 +68,13 @@ EOF
 ERROR: Failed to SUBJECT on $FILE1
 ERROR: Failed to SUBJECT on $FILE2
 EOF
-    assertFile1Unchanged
-    assertFile2Unchanged
+    assert_FILE1_unchanged
+    assert_FILE2_unchanged
 }
 
 @test "failure message when processing fails with 255" {
     run -124 processEachFile --message-subject SUBJECT --warn-unless-change --exec "${fail255Command[@]}" \; "$FILE1" "$FILE2"
     assert_output "ERROR: Failed to SUBJECT on $FILE1"
-    assertFile1Unchanged
-    assertFile2Unchanged
+    assert_FILE1_unchanged
+    assert_FILE2_unchanged
 }
