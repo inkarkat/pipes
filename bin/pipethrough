@@ -16,6 +16,7 @@
 # @(#)pipethrough	$Id$	pipes
 ###############################################################################
 set -o pipefail
+shopt -qs extglob
 
 : ${PIPETHROUGH_NOOP_STATUS:=99}
 : ${PIPETHROUGH_COMMAND_JOINER=|}
@@ -25,7 +26,7 @@ fileMarker="$PIPETHROUGH_FILE_MARKER"; unset PIPETHROUGH_FILE_MARKER
 
 printShortUsage()
 {
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-v|--verbose] [-P|--no-pass-file|-p|--piped] [-b|--backup EXT|--backup-command writeorig|writebackup|writeOrigOrBackup] [--test-only|(--diff-only|--diff [--diff-cmd CMD] [--diff-options OPT])] [--abort-unless-change|--abort-on-change] [--message-on-change MSG] [--message-on-success MSG] [--message-on-failure MSG] [--message-on-abort MSG] [--message-subject SUBJECT [--warn-on-change|--warn-unless-change]] [-?|-h|--help] ...'
+    printf 'Usage: [PIPETHROUGH_DIFF_COMMAND|DIFF=DIFFCMD] %q %s\n' "$(basename "$1")" '[-v|--verbose] [-P|--no-pass-file|-p|--piped] [-b|--backup EXT|--backup-command writeorig|writebackup|writeOrigOrBackup] [--test-only|(--diff-only|--diff [--diff-cmd CMD] [--color=(always|auto|never)|--no-color] [DIFF-ARGS ...])] [--abort-unless-change|--abort-on-change] [--message-on-change MSG] [--message-on-success MSG] [--message-on-failure MSG] [--message-on-abort MSG] [--message-subject SUBJECT [--warn-on-change|--warn-unless-change]] [-?|-h|--help] ...'
     printf 'Usage: %q %s\n' "$(basename "$1")" "[...] -c|--command \"COMMANDLINE [...] [${fileMarker}] [...]\" [-c ...] [--] [FILE ...]"
     printf 'Usage: %q %s\n' "$(basename "$1")" "[...] --exec SIMPLECOMMAND [ARGUMENT ...] [${fileMarker}] [ARGUMENT ...] $PIPETHROUGH_EXEC_END [--exec ...] [--] [FILE ...]"
     printf 'Usage: %q %s\n' "$(basename "$1")" "[...] -- SIMPLECOMMAND [ARGUMENT ...] [${fileMarker}] [ARGUMENT ...] -- [FILE ...]"
@@ -69,7 +70,6 @@ HELPDESCRIPTION
     --diff		    Also show differences done by COMMAND, and
 			    overwrite.
     --diff-cmd CMD	    Use CMD as the diff command.
-    --diff-options OPT	    Options passed to diff; default -u (unified diff).
     --abort-unless-change   Do not process further FILEs if COMMAND didn't
 			    change the current FILE.
     --abort-on-change	    Do not process further FILEs if COMMAND changed the
@@ -127,8 +127,10 @@ abortOn=
 backupExtension=
 backupCommand=
 commandArgumentNum=
-diffCommand=diff; [ -t 1 ] && type -t colordiff >/dev/null && diffCommand=colordiff # Highlight diff output if available.
-diffOptions=-u
+diffCommand=diff
+isColor=; [ -t 1 ] && isColor=t
+typeset -a diffArgs=()
+hasLabel=
 isPassFile=t
 isPiped=
 isVerbose=
@@ -169,8 +171,35 @@ do
 	--test-only)	shift; action=testChanges;;
 	--diff-only)	shift; action=diffChanges;;
 	--diff)		shift; action=diffAndOverwrite;;
-	--diff-options)		shift; diffOptions="$1"; shift;;
-	--diff-cmd)		shift; diffCommand="$1"; shift;;
+	--diff-cmd)	shift; diffCommand="${1:?}"; shift;;
+	--no-color|--color=never)
+			isColor=; shift;;
+	--color=always)	isColor=t; shift;;
+	--color=auto)	shift;;
+	--color)	shift
+			case "$1" in
+			    always) shift; isColor=t;;
+			    never)  shift; isColor=;;
+			    auto)   shift; ;;
+			    *)	    # Take a no-param --color as diff's --color flag and disable colordiff.
+				    diffArgs+=(--color); isColor=
+				    ;;
+			esac
+			;;
+
+	-+([aBbdEeIinqsTtuwyZ]))
+			diffArgs+=("$1"); shift;;
+	--@(brief|context|ed|expand-tabs|ignore-all-space|ignore-blank-lines|ignore-case|ignore-file-name-case|ignore-space-change|ignore-tab-expansion|ignore-trailing-space|initial-tab|left-column|minimal|no-dereference|no-ignore-file-name-case|normal|rcs|report-identical-files|side-by-side|speed-large-files|strip-trailing-cr|suppress-blank-empty|suppress-common-lines|text|unidirectional-new-file|unified))
+			diffArgs+=("$1"); shift;;
+	-[CDFlNprSUWXx])
+			diffArgs+=("$1" "${2?}"); shift; shift;;
+	--@(color|context|exclude-from|exclude|from-file|GTYPE-group-format|horizon-lines|ifdef|ignore-matching-lines|label|line-format|LTYPE-line-format|new-file|paginate|palette|recursive|show-c-function|show-function-line|starting-file|tabsize|to-file|unified|width)=*)
+			diffArgs+=("$1"); shift;;
+	--label=*)	diffArgs+=("$1"); shift; hasLabel=t;;
+	--@(exclude-from|exclude|from-file|GTYPE-group-format|horizon-lines|ifdef|ignore-matching-lines|line-format|LTYPE-line-format|new-file|paginate|palette|recursive|show-c-function|show-function-line|starting-file|tabsize|to-file|width))
+			diffArgs+=("$1" "${2?}"); shift; shift;;
+	--label)	diffArgs+=("$1" "${2?}"); shift; shift; hasLabel=t;;
+
 	--abort-unless-change)	shift
 				if [ "$abortOn" = 1 ]; then
 				    echo "ERROR: Cannot specify both --abort-unless-change and --abort-on-change at once."
@@ -208,6 +237,8 @@ do
 	*)		break;;
     esac
 done
+: ${diffCommand:=diff}; [ "$isColor" ] && type -t colordiff >/dev/null && diffCommand=colordiff
+diffCommand="${PIPETHROUGH_DIFF_COMMAND:-${DIFF:-$diffCommand}}"
 if [ -n "$messageSubject" ]; then
     if [ ! "${messageOnChange+t}" ]; then
 	case "$warnOn" in
@@ -287,10 +318,12 @@ message()
 
 overwrite()
 {
-    if [ -h "$2" -a ! -e "$2" ]; then
+    if [ "$2" = /dev/null ]; then
+	:
+    elif [ -h "$2" -a ! -e "$2" ]; then
 	cat -- "$1" > "$2"	# Shell redirection re-creates a dangling symlink instead of failing like cp.
     else
-	cp --force -- "$1" "$2"	# Preserve original file mode by using cp && rm instead of mv: "In the absence of --preserve, the permissions of existing destination files are unchanged."
+	cp --force --preserve=timestamps -- "$1" "$2"	# Preserve original file mode by using cp && rm instead of mv: "In the absence of --preserve, the permissions of existing destination files are unchanged."
     fi && rm --force -- "$1"
 }
 testChanges()
@@ -299,7 +332,17 @@ testChanges()
 }
 diffChanges()
 {
-    eval "$diffCommand" "$diffOptions" '"$2" "$1"'
+    typeset -a diffLabelArgs=()
+    if [ ! "$hasLabel" ]; then
+	diffLabelArgs=(
+	    --label "$2 $(stat --format=%y -- "$2" 2>/dev/null || printf '%s (original)' "$2")"
+	)
+	[ "$action" = diffAndOverwrite ] \
+	    && diffLabelArgs+=(--label "$2 $(stat --format=%y -- "$1" 2>/dev/null || printf '%s (modified)' "$2")") \
+	    || diffLabelArgs+=(--label "$2 (after $(commandName --eval "$commands" 2>/dev/null || printf 'modifications'))")
+    fi
+
+    $diffCommand "${diffArgs[@]}" "${diffLabelArgs[@]}" "$2" "$1"
     return 0	# Do not interpret differences as failure; we have the separate --abort-on-change and --abort-unless-change for that.
 }
 diffAndOverwrite()

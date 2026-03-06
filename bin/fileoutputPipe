@@ -139,7 +139,8 @@ fi >&2
 
 pipelineCommandName()
 {
-    commandName --eval --no-interpreter --undefined "${1:?}" "${1:?}"
+    commandName --eval --no-interpreter --undefined "${1:?}" "${1:?}" 2>/dev/null \
+	|| printf %s "$1"
 }
 
 if [ "$hasProgressNotification" ] && [ -n "$progressSink" ]; then

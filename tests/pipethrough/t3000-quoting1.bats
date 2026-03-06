@@ -1,15 +1,6 @@
 #!/usr/bin/env bats
 
-load fixture
-
-setup()
-{
-    readonly bar="${BATS_TMPDIR}/b a r"; echo "x" > "$bar"
-    readonly barEscaped="${BATS_TMPDIR}/b\\ a\\ r"
-    readonly commandSingleQuoted="sed -e 's/.*/& &/'"
-    readonly commandEscaped='sed -e s/.\*/\&\ \&/'
-    commandArgs=(sed -e 's/.*/& &/')
-}
+load files
 
 assert_modifications()
 {
