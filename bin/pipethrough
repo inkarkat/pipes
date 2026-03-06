@@ -130,6 +130,7 @@ commandArgumentNum=
 diffCommand=diff
 isColor=; [ -t 1 ] && isColor=t
 typeset -a diffArgs=()
+hasLabel=
 isPassFile=t
 isPiped=
 isVerbose=
@@ -194,8 +195,10 @@ do
 			diffArgs+=("$1" "${2?}"); shift; shift;;
 	--@(color|context|exclude-from|exclude|from-file|GTYPE-group-format|horizon-lines|ifdef|ignore-matching-lines|label|line-format|LTYPE-line-format|new-file|paginate|palette|recursive|show-c-function|show-function-line|starting-file|tabsize|to-file|unified|width)=*)
 			diffArgs+=("$1"); shift;;
-	--@(exclude-from|exclude|from-file|GTYPE-group-format|horizon-lines|ifdef|ignore-matching-lines|label|line-format|LTYPE-line-format|new-file|paginate|palette|recursive|show-c-function|show-function-line|starting-file|tabsize|to-file|width))
+	--label=*)	diffArgs+=("$1"); shift; hasLabel=t;;
+	--@(exclude-from|exclude|from-file|GTYPE-group-format|horizon-lines|ifdef|ignore-matching-lines|line-format|LTYPE-line-format|new-file|paginate|palette|recursive|show-c-function|show-function-line|starting-file|tabsize|to-file|width))
 			diffArgs+=("$1" "${2?}"); shift; shift;;
+	--label)	diffArgs+=("$1" "${2?}"); shift; shift; hasLabel=t;;
 
 	--abort-unless-change)	shift
 				if [ "$abortOn" = 1 ]; then
@@ -329,7 +332,17 @@ testChanges()
 }
 diffChanges()
 {
-    $diffCommand "${diffArgs[@]}" "$2" "$1"
+    typeset -a diffLabelArgs=()
+    if [ ! "$hasLabel" ]; then
+	diffLabelArgs=(
+	    --label "$2 $(stat --format=%y -- "$2" 2>/dev/null || printf '%s (original)' "$2")"
+	)
+	[ "$action" = diffAndOverwrite ] \
+	    && diffLabelArgs+=(--label "$2 $(stat --format=%y -- "$1" 2>/dev/null || printf '%s (modified)' "$2")") \
+	    || diffLabelArgs+=(--label "$2 (after $(commandName --eval "$commands" 2>/dev/null || printf 'modifications'))")
+    fi
+
+    $diffCommand "${diffArgs[@]}" "${diffLabelArgs[@]}" "$2" "$1"
     return 0	# Do not interpret differences as failure; we have the separate --abort-on-change and --abort-unless-change for that.
 }
 diffAndOverwrite()

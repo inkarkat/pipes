@@ -10,6 +10,7 @@ These commands simplify the setup of such pipelines for some common use cases.
 ### Dependencies
 
 * Bash
+* [inkarkat/shell-basics](https://github.com/inkarkat/shell-basics) (optional)
 * automated testing is done with _bats - Bash Automated Testing System_ (https://github.com/bats-core/bats-core)
 
 ### Installation

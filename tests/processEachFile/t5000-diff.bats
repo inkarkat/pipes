@@ -9,17 +9,47 @@ load fixture
 
 @test "show traditional diff when first file is changed" {
     run -0 processEachFile --diff --exec "${changeFirstCommand[@]}" \; "$FILE1" "$FILE2"
-    assert_line -n -4 "1c1"
-    assert_line -n -3 "< FOO"
-    assert_line -n -2 "---"
-    assert_line -n -1 "> Fi"
+    assert_output - <<'EOF'
+1c1
+< FOO
+---
+> Fi
+EOF
 }
 
 @test "show unified diff when first file is changed" {
+    origDate="$(stat --format=%y "$FILE1")"
     run -0 processEachFile --diff -u --exec "${changeFirstCommand[@]}" \; "$FILE1" "$FILE2"
-    assert_line -n -3 "@@ -1 +1 @@"
-    assert_line -n -2 "-FOO"
-    assert_line -n -1 "+Fi"
+    assert_output - <<EOF
+--- $FILE1 ${origDate}
++++ $FILE1 $(stat --format=%y "$FILE1")
+@@ -1 +1 @@
+-FOO
++Fi
+EOF
+}
+
+@test "show unified diff when first file is changed with backup" {
+    origDate="$(stat --format=%y "$FILE1")"
+    run -0 processEachFile --backup .bak --delta-via backup --diff -u --exec "${changeFirstCommand[@]}" \; "$FILE1" "$FILE2"
+    assert_output - <<EOF
+--- ${FILE1}.bak ${origDate}
++++ $FILE1 $(stat --format=%y "$FILE1")
+@@ -1 +1 @@
+-FOO
++Fi
+EOF
+}
+
+@test "show unified diff when first file is changed with passed labels" {
+    run -0 processEachFile --diff -u --label 'original' --label 'modified' --exec "${changeFirstCommand[@]}" \; "$FILE1" "$FILE2"
+    assert_output - <<EOF
+--- original
++++ modified
+@@ -1 +1 @@
+-FOO
++Fi
+EOF
 }
 
 @test "show unified diff when both files are changed" {

@@ -145,6 +145,7 @@ commandArgumentNum=
 isColor=; [ -t 1 ] && isColor=t
 diffCommand=diff
 typeset -a diffArgs=()
+hasLabel=
 isVerbose=
 progressSink=
 warnOn=
@@ -206,8 +207,10 @@ do
 			diffArgs+=("$1" "${2?}"); shift; shift;;
 	--@(color|context|exclude-from|exclude|from-file|GTYPE-group-format|horizon-lines|ifdef|ignore-matching-lines|label|line-format|LTYPE-line-format|new-file|paginate|palette|recursive|show-c-function|show-function-line|starting-file|tabsize|to-file|unified|width)=*)
 			diffArgs+=("$1"); shift;;
-	--@(exclude-from|exclude|from-file|GTYPE-group-format|horizon-lines|ifdef|ignore-matching-lines|label|line-format|LTYPE-line-format|new-file|paginate|palette|recursive|show-c-function|show-function-line|starting-file|tabsize|to-file|width))
+	--label=*)	diffArgs+=("$1"); shift; hasLabel=t;;
+	--@(exclude-from|exclude|from-file|GTYPE-group-format|horizon-lines|ifdef|ignore-matching-lines|line-format|LTYPE-line-format|new-file|paginate|palette|recursive|show-c-function|show-function-line|starting-file|tabsize|to-file|width))
 			diffArgs+=("$1" "${2?}"); shift; shift;;
+	--label)	diffArgs+=("$1" "${2?}"); shift; shift; hasLabel=t;;
 
 	--abort-unless-change)	shift
 				if [ "$abortOn" = 1 ]; then
@@ -352,7 +355,17 @@ diffChanges()
     local copyFilespec="${1?}"; shift
     local copyDigest="${1?}"; shift
     local file="${1:?}"; shift
-    $diffCommand "${diffArgs[@]}" "$copyFilespec" "$file"
+
+    typeset -a diffLabelArgs=()
+    if [ ! "$hasLabel" ]; then
+	local sourceFilespec="$file"; [ "$delta" = backup ] && sourceFilespec="$copyFilespec"
+	diffLabelArgs=(
+	    --label "$sourceFilespec $(stat --format=%y -- "$copyFilespec" 2>/dev/null || printf '%s (original)' "$sourceFilespec")"
+	    --label "$file $(stat --format=%y -- "$file" 2>/dev/null || printf '%s (modified)' "$file")"
+	)
+    fi
+
+    $diffCommand "${diffArgs[@]}" "${diffLabelArgs[@]}" "$copyFilespec" "$file"
     return 0	# Do not interpret differences as failure; we have the separate --abort-on-change and --abort-unless-change for that.
 }
 backupToExtension()
