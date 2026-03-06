@@ -456,7 +456,7 @@ do
 	case "$delta" in
 	    '') ;;
 	    copy)
-		cp --force --dereference -- "$file" "${copyFilespec:?}" || exit $?
+		cp --force --dereference --preserve=all -- "$file" "${copyFilespec:?}" || exit $?
 		;;
 	    backup)
 		if [ -z "$backupFilespec" ]; then
