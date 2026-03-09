@@ -18,3 +18,9 @@ load fixture
     run -0 pipelineWithDiff -h
     refute_line -n 0 -e '^Usage:'
 }
+
+@test "cannot combine --output with --sink-exec" {
+    run -2 pipelineWithDiff --output /dev/null --sink-exec true \; -- cat
+    assert_line -n 0 'ERROR: Cannot combine --output with --sink-command|--sink-exec.'
+    assert_line -n 2 -e '^Usage:'
+}

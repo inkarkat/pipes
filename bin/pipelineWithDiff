@@ -3,6 +3,7 @@ set -o pipefail
 shopt -qs extglob
 
 : ${PIPELINEWITHDIFF_SOURCECOMMAND_JOINER=;}
+: ${PIPELINEWITHDIFF_SINKCOMMAND_JOINER=;}
 : ${PIPELINEWITHDIFF_COMMAND_JOINER=|}
 : ${PIPELINEWITHDIFF_EXEC_END=;}
 
@@ -10,8 +11,8 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: [PIPELINEWITHDIFF_DIFF_COMMAND|DIFF=DIFFCMD] %q %s\n' "$(basename "$1")" "[-d|--diff-output FILESPEC|&N] [-o|--output FILESPEC|&N] [-a|--append] [-r|--reverse] [--diff-cmd CMD] [--color=(always|auto|never)|--no-color] [DIFF-ARGS ...] [-?|-h|--help] ..."
-    printf 'Usage: %q %s\n' "$(basename "$1")" "... -s|--source-command \"SOURCE-COMMANDLINE\" | -S|--source-exec SOURCE-SIMPLECOMMAND [...] $PIPELINEWITHDIFF_EXEC_END -c|--command \"COMMANDLINE\" [-c ...] | --exec SIMPLECOMMAND [...] $PIPELINEWITHDIFF_EXEC_END [...] [--exec ...] | [--] SIMPLECOMMAND [...] [-?|-h|--help]"
+    printf 'Usage: [PIPELINEWITHDIFF_DIFF_COMMAND|DIFF=DIFFCMD] %q %s\n' "$(basename "$1")" "[-d|--diff-output FILESPEC|&N] [-o|--output FILESPEC|&N | -t|--sink-command \"SINK-COMMANDLINE\" | -T|--sink-exec SINK-SIMPLECOMMAND [...] $PIPELINEWITHDIFF_EXEC_END] [-a|--append] [-r|--reverse] [--diff-cmd CMD] [--color=(always|auto|never)|--no-color] [DIFF-ARGS ...] [-?|-h|--help] ..."
+    printf 'Usage: %q %s\n' "$(basename "$1")" "... -s|--source-command \"SOURCE-COMMANDLINE\" | -S|--source-exec SOURCE-SIMPLECOMMAND [...] $PIPELINEWITHDIFF_EXEC_END -c|--command \"COMMANDLINE\" [-c ...] | --exec SIMPLECOMMAND [...] $PIPELINEWITHDIFF_EXEC_END [...] [--exec ...] | [--] SIMPLECOMMAND [...]"
     printf 'Usage: cat FILE [...] | %q %s\n' "$(basename "$1")" "... -c|--command \"COMMANDLINE\" [-c ...] | --exec SIMPLECOMMAND [...] $PIPELINEWITHDIFF_EXEC_END [...] [--exec ...] | [--] SIMPLECOMMAND [...]"
 }
 printUsage()
@@ -26,9 +27,11 @@ printLongUsage()
     # This is the long "man page" when launched with the help argument.
     # It is printed to stdout to allow paging with 'more'.
     cat <<HELPDESCRIPTION
-Build a pipeline out of COMMANDs (in the order given), and process the input /
-the first (i.e. acting as a source) command's output with it. If the pipeline
-succeeds, show the diff between the input / source output and the final output.
+Build a pipeline out of COMMANDs (in the order given, ending with optional
+SINK-COMMAND), and process the input / the first (i.e. acting as a
+SOURCE-)COMMAND's output with it. If the pipeline succeeds, show the diff
+between the input / source output and the final output / output into
+SINK-COMMAND.
 HELPDESCRIPTION
     echo
     printShortUsage "$1"
@@ -62,6 +65,15 @@ HELPDESCRIPTION
     --exec CMD [...] $PIPELINEWITHDIFF_EXEC_END	Pipe the input into CMD / add CMD as a pipeline step.
 			All following arguments are taken to be arguments to the
 			CMD until an argument consisting of '${PIPELINEWITHDIFF_EXEC_END}' is encountered.
+    --sink-command|-t CMD
+			CMD is executed last and can consume / change the
+			pipeline's output without affecting the diff.
+    --sink-exec|-T CMD [...] $PIPELINEWITHDIFF_EXEC_END
+			CMD is executed last and can consume / change the
+			pipeline's output without affecting the diff. All
+			following arguments are taken to be arguments to the CMD
+			until an argument consisting of '${PIPELINEWITHDIFF_EXEC_END}' is encountered.
+
 SEE ALSO:
 - withDiff applies COMMAND(s) to FILE(s), not pipeline data, and shows the diff
   between the original and the final FILE(s).
@@ -78,10 +90,11 @@ addCommand()
 }
 
 commandSink=
-sinkRedir='>'
+redir='>'
 diffSink=
 isReverse=
 sourceCommands=
+sinkCommands=
 commands=
 diffCommand=diff
 isColor=; [ -t 1 ] && isColor=t
@@ -94,7 +107,7 @@ do
 	--diff-output|-d)
 			shift; diffSink="${1:?}"; shift;;
 	--output|-o)	shift; commandSink="${1:?}"; shift;;
-	--append|-a)	shift; sinkRedir='>>';;
+	--append|-a)	shift; redir='>>';;
 	--reverse|-r)	shift; isReverse=t;;
 
 	--source-command|-s)
@@ -114,6 +127,24 @@ do
 			fi >&2
 			shift
 			sourceCommands+="${sourceCommands:+ $PIPELINEWITHDIFF_SOURCECOMMAND_JOINER }${cmd}"
+			;;
+
+	--sink-command|-t)
+			shift; sinkCommands+="${sinkCommands:+ $PIPELINEWITHDIFF_SINKCOMMAND_JOINER }${1?}"; shift;;
+	--sink-exec|-T) shift
+			cmd=
+			while [ $# -gt 0 -a "$1" != "$PIPELINEWITHDIFF_EXEC_END" ]
+			do
+			    printf -v quotedArg %q "$1"
+			    cmd+="${cmd:+ }${quotedArg}"
+			    shift
+			done
+			if [ $# -eq 0 ]; then
+			    echo "ERROR: -T|--sink-exec command must be concluded with '${PIPELINEWITHDIFF_EXEC_END}'"; echo; printUsage "$0"
+			    exit 2
+			fi >&2
+			shift
+			sinkCommands+="${sinkCommands:+ $PIPELINEWITHDIFF_SINKCOMMAND_JOINER }${cmd}"
 			;;
 
 	--command|-c)	shift
@@ -181,6 +212,11 @@ if [ -z "$commands" ]; then
     echo
     printUsage "$0"
     exit 2
+elif [ -n "$commandSink" -a  -n "$sinkCommands" ]; then
+    echo 'ERROR: Cannot combine --output with --sink-command|--sink-exec.'
+    echo
+    printUsage "$0"
+    exit 2
 fi >&2
 [ -n "$commandSink" ] || : ${diffSink:=&2}
 
@@ -199,11 +235,12 @@ showDiff()
 	    --label "output (after $(commandName --eval "$commands" 2>/dev/null || printf 'modifications'))"
 	)
     fi
-    eval '$diffCommand "${diffArgs[@]}" "${diffLabelArgs[@]}" -- "$tempOriginalFilespec" "$tempProcessedFilespec"' "${diffSink:+${sinkRedir}${diffSink}}"
+    eval '$diffCommand "${diffArgs[@]}" "${diffLabelArgs[@]}" -- "$tempOriginalFilespec" "$tempProcessedFilespec"' "${diffSink:+${redir}${diffSink}}"
 }
 trap showDiff EXIT
 
 eval "${sourceCommands:+{ $sourceCommands; \}}" \
     "${sourceCommands:+|}" 'tee "$tempOriginalFilespec"' \
     | eval "{ $commands; }" \
-    | eval 'tee "$tempProcessedFilespec"' "${commandSink:+${sinkRedir}${commandSink}}"
+    | eval 'tee "$tempProcessedFilespec"' \
+    "${commandSink:+${redir}${commandSink}}${sinkCommands:+|}${sinkCommands:+{ $sinkCommands; \}}"
