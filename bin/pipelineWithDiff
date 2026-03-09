@@ -12,7 +12,9 @@ printShortUsage()
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
     printf 'Usage: [PIPELINEWITHDIFF_DIFF_COMMAND|DIFF=DIFFCMD] %q %s\n' "$(basename "$1")" "[-d|--diff-output FILESPEC|&N] [-o|--output FILESPEC|&N | -t|--sink-command \"SINK-COMMANDLINE\" | -T|--sink-exec SINK-SIMPLECOMMAND [...] $PIPELINEWITHDIFF_EXEC_END] [-a|--append] [-r|--reverse] [--diff-cmd CMD] [--color=(always|auto|never)|--no-color] [DIFF-ARGS ...] [--diff-on-success|--diff-on-failure|--diff-on NUM|--diff-unless NUM] [-?|-h|--help] ..."
+    echo
     printf 'Usage: %q %s\n' "$(basename "$1")" "... -s|--source-command \"SOURCE-COMMANDLINE\" | -S|--source-exec SOURCE-SIMPLECOMMAND [...] $PIPELINEWITHDIFF_EXEC_END -c|--command \"COMMANDLINE\" [-c ...] | --exec SIMPLECOMMAND [...] $PIPELINEWITHDIFF_EXEC_END [...] [--exec ...] | [--] SIMPLECOMMAND [...]"
+    echo
     printf 'Usage: cat FILE [...] | %q %s\n' "$(basename "$1")" "... -c|--command \"COMMANDLINE\" [-c ...] | --exec SIMPLECOMMAND [...] $PIPELINEWITHDIFF_EXEC_END [...] [--exec ...] | [--] SIMPLECOMMAND [...]"
 }
 printUsage()
@@ -30,7 +32,7 @@ printLongUsage()
 Build a pipeline out of COMMANDs (in the order given, ending with optional
 SINK-COMMAND), and process the input / the first (i.e. acting as a
 SOURCE-)COMMAND's output with it. Finally, show the diff between the input /
-source output and the final output / output into SINK-COMMAND.
+SOURCE-COMAND's output and the final output / output into SINK-COMMAND.
 HELPDESCRIPTION
     echo
     printShortUsage "$1"
@@ -38,7 +40,7 @@ HELPDESCRIPTION
     cat <<HELPTEXT
     --diff-output|-d FILESPEC|&N
 			Write diff output to FILESPEC / file descriptor N.
-			By default, diff output is written to stderr or stdout
+			By default, diff output is written to stderr, or stdout
 			if --output is given.
     --output|-o FILESPEC|&N
 			Write pipeline output to FILESPEC / file descriptor N
@@ -84,7 +86,10 @@ EXIT STATUS:
 SEE ALSO:
 - withDiff applies COMMAND(s) to FILE(s), not pipeline data, and shows the diff
   between the original and the final FILE(s).
+
+Example:
 HELPTEXT
+    printf '%q %s\n' "$(basename "$1")" '-u -s clipboard -t clipboard fmt'
 }
 
 addCommand()
