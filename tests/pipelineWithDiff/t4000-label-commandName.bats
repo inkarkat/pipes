@@ -3,6 +3,7 @@
 load fixture
 
 setup() {
+    fixtureSetup
     type -t commandName >/dev/null || skip 'commandName is not available'
 }
 

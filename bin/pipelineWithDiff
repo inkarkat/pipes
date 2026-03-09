@@ -10,7 +10,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: [PIPELINEWITHDIFF_DIFF_COMMAND|DIFF=DIFFCMD] %q %s\n' "$(basename "$1")" "[-o|--output FILESPEC|&N] [-r|--reverse] [--diff-cmd CMD] [--color=(always|auto|never)|--no-color] [DIFF-ARGS ...] [-?|-h|--help] ..."
+    printf 'Usage: [PIPELINEWITHDIFF_DIFF_COMMAND|DIFF=DIFFCMD] %q %s\n' "$(basename "$1")" "[-d|--diff-output FILESPEC|&N] [-o|--output FILESPEC|&N] [-a|--append] [-r|--reverse] [--diff-cmd CMD] [--color=(always|auto|never)|--no-color] [DIFF-ARGS ...] [-?|-h|--help] ..."
     printf 'Usage: %q %s\n' "$(basename "$1")" "... -s|--source-command \"SOURCE-COMMANDLINE\" | -S|--source-exec SOURCE-SIMPLECOMMAND [...] $PIPELINEWITHDIFF_EXEC_END -c|--command \"COMMANDLINE\" [-c ...] | --exec SIMPLECOMMAND [...] $PIPELINEWITHDIFF_EXEC_END [...] [--exec ...] | [--] SIMPLECOMMAND [...] [-?|-h|--help]"
     printf 'Usage: cat FILE [...] | %q %s\n' "$(basename "$1")" "... -c|--command \"COMMANDLINE\" [-c ...] | --exec SIMPLECOMMAND [...] $PIPELINEWITHDIFF_EXEC_END [...] [--exec ...] | [--] SIMPLECOMMAND [...]"
 }
@@ -34,9 +34,14 @@ HELPDESCRIPTION
     printShortUsage "$1"
     echo
     cat <<HELPTEXT
+    --diff-output|-d FILESPEC|&N
+			Write diff output to FILESPEC / file descriptor N.
+			By default, diff output is written to stderr or stdout
+			if --output is given.
     --output|-o FILESPEC|&N
-			Append diff output to FILESPEC / file descriptor N
-			instead of stderr.
+			Write pipeline output to FILESPEC / file descriptor N
+			instead of stdout.
+    --append|-a		Append diff / pipeline output instead of overwriting it.
     --reverse|-r	Put all following COMMANDs and SIMPLECOMMANDs before
 			existing COMMANDs instead of after them. This can come
 			handy in an alias where the user can append arguments,
@@ -72,7 +77,9 @@ addCommand()
     fi
 }
 
-diffSink='&2'
+commandSink=
+sinkRedir='>'
+diffSink=
 isReverse=
 sourceCommands=
 commands=
@@ -84,7 +91,10 @@ while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
-	--output|-o)	shift; diffSink="${1:?}"; shift;;
+	--diff-output|-d)
+			shift; diffSink="${1:?}"; shift;;
+	--output|-o)	shift; commandSink="${1:?}"; shift;;
+	--append|-a)	shift; sinkRedir='>>';;
 	--reverse|-r)	shift; isReverse=t;;
 
 	--source-command|-s)
@@ -172,6 +182,7 @@ if [ -z "$commands" ]; then
     printUsage "$0"
     exit 2
 fi >&2
+[ -n "$commandSink" ] || : ${diffSink:=&2}
 
 tempOriginalFilespec="$(mktemp --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || echo "${TMPDIR:-/tmp}/$(basename -- "$0").$$$RANDOM")"
 tempProcessedFilespec="$(mktemp --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || echo "${TMPDIR:-/tmp}/$(basename -- "$0").$$$RANDOM")"
@@ -188,11 +199,11 @@ showDiff()
 	    --label "output (after $(commandName --eval "$commands" 2>/dev/null || printf 'modifications'))"
 	)
     fi
-    eval '$diffCommand "${diffArgs[@]}" "${diffLabelArgs[@]}" -- "$tempOriginalFilespec" "$tempProcessedFilespec"' ">$diffSink"
+    eval '$diffCommand "${diffArgs[@]}" "${diffLabelArgs[@]}" -- "$tempOriginalFilespec" "$tempProcessedFilespec"' "${diffSink:+${sinkRedir}${diffSink}}"
 }
 trap showDiff EXIT
 
 eval "${sourceCommands:+{ $sourceCommands; \}}" \
     "${sourceCommands:+|}" 'tee "$tempOriginalFilespec"' \
     | eval "{ $commands; }" \
-    | tee "$tempProcessedFilespec"
+    | eval 'tee "$tempProcessedFilespec"' "${commandSink:+${sinkRedir}${commandSink}}"

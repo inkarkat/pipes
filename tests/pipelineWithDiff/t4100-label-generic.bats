@@ -3,6 +3,7 @@
 load fixture
 
 setup() {
+    fixtureSetup
     commandName() { false; }; export -f commandName
 }
 
