@@ -192,6 +192,7 @@ showDiff()
 }
 trap showDiff EXIT
 
-tee "$tempOriginalFilespec" \
-    | eval "$commands" \
+eval "${sourceCommands:+{ $sourceCommands; \}}" \
+    "${sourceCommands:+|}" 'tee "$tempOriginalFilespec"' \
+    | eval "{ $commands; }" \
     | tee "$tempProcessedFilespec"
