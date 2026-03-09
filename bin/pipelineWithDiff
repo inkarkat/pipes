@@ -11,7 +11,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: [PIPELINEWITHDIFF_DIFF_COMMAND|DIFF=DIFFCMD] %q %s\n' "$(basename "$1")" "[-d|--diff-output FILESPEC|&N] [-o|--output FILESPEC|&N | -t|--sink-command \"SINK-COMMANDLINE\" | -T|--sink-exec SINK-SIMPLECOMMAND [...] $PIPELINEWITHDIFF_EXEC_END] [-a|--append] [-r|--reverse] [--diff-cmd CMD] [--color=(always|auto|never)|--no-color] [DIFF-ARGS ...] [-?|-h|--help] ..."
+    printf 'Usage: [PIPELINEWITHDIFF_DIFF_COMMAND|DIFF=DIFFCMD] %q %s\n' "$(basename "$1")" "[-d|--diff-output FILESPEC|&N] [-o|--output FILESPEC|&N | -t|--sink-command \"SINK-COMMANDLINE\" | -T|--sink-exec SINK-SIMPLECOMMAND [...] $PIPELINEWITHDIFF_EXEC_END] [-a|--append] [-r|--reverse] [--diff-cmd CMD] [--color=(always|auto|never)|--no-color] [DIFF-ARGS ...] [--diff-on-success|--diff-on-failure|--diff-on NUM|--diff-unless NUM] [-?|-h|--help] ..."
     printf 'Usage: %q %s\n' "$(basename "$1")" "... -s|--source-command \"SOURCE-COMMANDLINE\" | -S|--source-exec SOURCE-SIMPLECOMMAND [...] $PIPELINEWITHDIFF_EXEC_END -c|--command \"COMMANDLINE\" [-c ...] | --exec SIMPLECOMMAND [...] $PIPELINEWITHDIFF_EXEC_END [...] [--exec ...] | [--] SIMPLECOMMAND [...]"
     printf 'Usage: cat FILE [...] | %q %s\n' "$(basename "$1")" "... -c|--command \"COMMANDLINE\" [-c ...] | --exec SIMPLECOMMAND [...] $PIPELINEWITHDIFF_EXEC_END [...] [--exec ...] | [--] SIMPLECOMMAND [...]"
 }
@@ -29,9 +29,8 @@ printLongUsage()
     cat <<HELPDESCRIPTION
 Build a pipeline out of COMMANDs (in the order given, ending with optional
 SINK-COMMAND), and process the input / the first (i.e. acting as a
-SOURCE-)COMMAND's output with it. If the pipeline succeeds, show the diff
-between the input / source output and the final output / output into
-SINK-COMMAND.
+SOURCE-)COMMAND's output with it. Finally, show the diff between the input /
+source output and the final output / output into SINK-COMMAND.
 HELPDESCRIPTION
     echo
     printShortUsage "$1"
@@ -51,6 +50,10 @@ HELPDESCRIPTION
 			but these should not go to the last pipeline command,
 			but an earlier one.
     --diff-cmd CMD	Use CMD as the diff command.
+    --diff-on-success	Only show the diff if COMMAND is successful.
+    --diff-on-failure	Only show the diff if COMMAND is unsuccessful.
+    --diff-on NUM	Only show the diff if COMMAND exits with NUM.
+    --diff-unless NUM	Only show the diff if COMMAND does not exit with NUM.
     --source-command|-s CMD
 			Execute CMD first and use its output for diffing and as
 			the input to the pipeline.
@@ -73,6 +76,10 @@ HELPDESCRIPTION
 			pipeline's output without affecting the diff. All
 			following arguments are taken to be arguments to the CMD
 			until an argument consisting of '${PIPELINEWITHDIFF_EXEC_END}' is encountered.
+EXIT STATUS:
+    0	Complete success.
+    2	Bad invocation, wrong or missing command-line arguments.
+    *   any exit status from COMMAND(s)
 
 SEE ALSO:
 - withDiff applies COMMAND(s) to FILE(s), not pipeline data, and shows the diff
@@ -97,6 +104,8 @@ sourceCommands=
 sinkCommands=
 commands=
 diffCommand=diff
+diffOn=
+diffComparison=-eq
 isColor=; [ -t 1 ] && isColor=t
 typeset -a diffArgs=()
 hasLabel=
@@ -167,6 +176,11 @@ do
 			addCommand "$cmd"
 			;;
 
+	--diff-on-success)	shift; diffOn=0; diffComparison=-eq;;
+	--diff-on-failure)	shift; diffOn=0; diffComparison=-ne;;
+	--diff-on)		shift; diffOn="$1"; shift; diffComparison=-eq;;
+	--diff-unless)		shift; diffOn="$1"; shift; diffComparison=-ne;;
+
 	--diff-cmd)	shift; diffCommand="${1:?}"; shift;;
 	--no-color|--color=never)
 			isColor=; shift;;
@@ -228,6 +242,10 @@ diffCommand="${PIPELINEWITHDIFF_DIFF_COMMAND:-${DIFF:-$diffCommand}}"
 
 showDiff()
 {
+    if [ -n "$diffOn" ] && ! [ $status $diffComparison $diffOn ]; then
+	return
+    fi
+
     typeset -a diffLabelArgs=()
     if [ ! "$hasLabel" ]; then
 	diffLabelArgs=(
@@ -244,3 +262,5 @@ eval "${sourceCommands:+{ $sourceCommands; \}}" \
     | eval "{ $commands; }" \
     | eval 'tee "$tempProcessedFilespec"' \
     "${commandSink:+${redir}${commandSink}}${sinkCommands:+|}${sinkCommands:+{ $sinkCommands; \}}"
+status=$?
+exit $status
