@@ -184,7 +184,7 @@ showDiff()
     typeset -a diffLabelArgs=()
     if [ ! "$hasLabel" ]; then
 	diffLabelArgs=(
-	    --label 'input'
+	    --label "input${sourceCommands:+ (from $(commandName --eval "$sourceCommands" 2>/dev/null || printf 'source command'))}"
 	    --label "output (after $(commandName --eval "$commands" 2>/dev/null || printf 'modifications'))"
 	)
     fi
