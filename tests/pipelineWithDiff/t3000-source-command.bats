@@ -3,7 +3,7 @@
 load fixture
 
 @test "source command into single command pipeline" {
-    run -0 --separate-stderr pipelineWithDiff --source-exec echo FOO \; --exec "${changeCommand[@]}" \;
+    run -0 --separate-stderr pipelineWithDiff --source-exec echo FOO \; --exec "${CHANGE_COMMAND[@]}" \;
     assert_output 'Fi'
     output="$stderr" assert_output - <<'EOF'
 1c1
@@ -14,7 +14,7 @@ EOF
 }
 
 @test "multiple source commands into single command pipeline" {
-    run -0 --separate-stderr pipelineWithDiff --source-exec echo FOO \; --source-command 'echo BOO' --exec "${changeCommand[@]}" \;
+    run -0 --separate-stderr pipelineWithDiff --source-exec echo FOO \; --source-command 'echo BOO' --exec "${CHANGE_COMMAND[@]}" \;
     assert_output - <<'EOF'
 Fi
 Bi

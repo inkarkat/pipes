@@ -3,7 +3,7 @@
 load fixture
 
 @test "unified diff" {
-    run -0 --separate-stderr pipelineWithDiff -u --exec "${changeCommand[@]}" \; <<<'FOO'
+    run -0 --separate-stderr pipelineWithDiff -u --exec "${CHANGE_COMMAND[@]}" \; <<<'FOO'
     assert_output 'Fi'
     lines=("${stderr_lines[@]}")
     assert_line -n -3 '@@ -1 +1 @@'
