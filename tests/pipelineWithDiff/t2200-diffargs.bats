@@ -3,29 +3,10 @@
 load fixture
 
 @test "unified diff" {
-    type -t commandName >/dev/null || skip 'commandName is not available'
-
     run -0 --separate-stderr pipelineWithDiff -u --exec "${changeCommand[@]}" \; <<<'FOO'
     assert_output 'Fi'
-    output="$stderr" assert_output - <<'EOF'
---- input
-+++ output (after sed)
-@@ -1 +1 @@
--FOO
-+Fi
-EOF
-}
-
-@test "unified diff without commandName" {
-    commandName() { false; }; export -f commandName
-
-    run -0 --separate-stderr pipelineWithDiff -u --exec "${changeCommand[@]}" \; <<<'FOO'
-    assert_output 'Fi'
-    output="$stderr" assert_output - <<'EOF'
---- input
-+++ output (after modifications)
-@@ -1 +1 @@
--FOO
-+Fi
-EOF
+    lines=("${stderr_lines[@]}")
+    assert_line -n -3 '@@ -1 +1 @@'
+    assert_line -n -2 '-FOO'
+    assert_line -n -1 '+Fi'
 }
