@@ -5,7 +5,6 @@ load nofile
 setup()
 {
     exists cksum || skip 'cksum is not available'
-    nofileSetup
 }
 
 @test "delta successfully ignoring non-existing file" {
