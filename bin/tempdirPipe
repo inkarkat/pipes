@@ -160,7 +160,7 @@ getTempDir()
 	|| { dirspec="${TMPDIR:-/tmp}/$(basename -- "$0").$$$RANDOM"; mkdir -p -- "$dirspec" && printf %s "$dirspec"; } \
 	|| return 3
 }
-trap '${DEBUG:+debugcommand --} rm -rf -- "${tempDirspecs[@]}" 2>/dev/null' EXIT
+trap '${DEBUG:+debugcommand --module cleanup --} rm -rf -- "${tempDirspecs[@]}" 2>/dev/null' EXIT
 
 
 pipelineCommandName()
