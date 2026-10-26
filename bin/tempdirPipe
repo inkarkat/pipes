@@ -2,6 +2,8 @@
 set -o pipefail
 shopt -qs dotglob nullglob
 
+${DEBUG:+eval $(debugtrace -o $- -- "$@")}
+
 : ${TEMPDIRPIPE_EXEC_END=;}
 : ${TEMPDIRPIPE_INPUTDIR_MARKER:='{I}'}
 : ${TEMPDIRPIPE_INPUTFILES_MARKER:='{ii}'}
@@ -207,6 +209,7 @@ withPrompt()
     printf '%s\n' "${1:?}" | runWithPrompt --no-trailing-prompt --comment "$2"
 }
 
+${DEBUG:+eval $(debugtrace --point main -o $- --)}
 
 if [ $# -eq 0 ]; then
     inputDirspec="${sourceDirspec:-$PWD}"

@@ -17,6 +17,8 @@
 ###############################################################################
 shopt -qs extglob
 
+${DEBUG:+eval $(debugtrace -o $- -- "$@")}
+
 : ${PROCESSEACHFILE_NOOP_STATUS:=99}
 : ${PROCESSEACHFILE_COMMAND_JOINER=;}
 : ${PROCESSEACHFILE_EXEC_END=;}
@@ -450,6 +452,8 @@ if [ "$hasProgressNotification" ] && [ -n "$progressSink" ]; then
 else
     reportProgress() { :; }
 fi
+
+${DEBUG:+eval $(debugtrace --point main -o $- --)}
 
 exitStatus=0
 for file
